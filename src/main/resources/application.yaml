@@ -2,11 +2,23 @@ spring:
   application:
     name: insurance-microservice
 
+  logging:
+    level:
+      org.springframework.kafka: DEBUG
+      org.springframework.kafka.listener: DEBUG
+      org.apache.kafka.clients.consumer: DEBUG
+      org.apache.kafka.clients: DEBUG
+      com.insurance: DEBUG
+
   # Kafka Configuration
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    admin:
+      auto-create: true
+      properties:
+        create.timeout.ms: 60000
     consumer:
-      group-id: insurance-group
+      group-id: "insurance-group"
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
