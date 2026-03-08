@@ -16,8 +16,8 @@ public class Incident {
     private String incidentId;
     private String orderId;
     private String policyId;
-    private String reporterId; // Агрегатор или Регулятор
-    private String reporterType; // AGGREGATOR, REGULATOR
+    //private String reporterId; // Агрегатор или Регулятор
+    //private String reporterType; // AGGREGATOR, REGULATOR
 
     private BigDecimal damageAmount;
     private LocalDateTime incidentDate;

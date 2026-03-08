@@ -12,5 +12,5 @@ public interface IncidentRepository extends JpaRepository<Incident, String> {
     Optional<Incident> findByIncidentId(String incidentId);
     List<Incident> findByOrderId(String orderId);
     List<Incident> findByPolicyId(String policyId);
-    List<Incident> findByReporterId(String reporterId);
+    //List<Incident> findByReporterId(String reporterId);
 }
