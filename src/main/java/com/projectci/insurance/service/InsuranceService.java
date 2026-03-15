@@ -3,6 +3,7 @@ package com.projectci.insurance.service;
 import com.projectci.insurance.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -10,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 @Slf4j
 public class InsuranceService {
 
@@ -18,8 +19,21 @@ public class InsuranceService {
     private final PolicyService policyService;
     private final IncidentService incidentService;
     private final KbmService kbmService;
+    private final String responseTopic;
 
-    private static final String RESPONSE_TOPIC = "insurance-responses";
+    public InsuranceService(
+            KafkaTemplate<String, Object> kafkaTemplate,
+            PolicyService policyService,
+            IncidentService incidentService,
+            KbmService kbmService,
+            @Qualifier("insuranceResponseTopicName") String responseTopic) {  // Инъекция имени топика
+
+        this.kafkaTemplate = kafkaTemplate;
+        this.policyService = policyService;
+        this.incidentService = incidentService;
+        this.kbmService = kbmService;
+        this.responseTopic = responseTopic;
+    }
 
     public void processInsuranceRequest(InsuranceRequest request) {
         //log.info("Processing insurance request: {}", request);
@@ -45,13 +59,13 @@ public class InsuranceService {
             }
 
             // Отправка ответа в Kafka
-            kafkaTemplate.send(RESPONSE_TOPIC, response.getOrderId(), response);
+            kafkaTemplate.send(responseTopic, response.getOrderId(), response);
             //log.info("Response sent: {}", response);
 
         } catch (Exception e) {
             //log.error("Error processing request: {}", request, e);
             InsuranceResponse errorResponse = createErrorResponse(request, e.getMessage());
-            kafkaTemplate.send(RESPONSE_TOPIC, errorResponse.getOrderId(), errorResponse);
+            kafkaTemplate.send(responseTopic, errorResponse.getOrderId(), errorResponse);
         }
     }
 

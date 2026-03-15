@@ -1,5 +1,6 @@
 package com.projectci.insurance.config;
 
+import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -29,6 +30,35 @@ public class KafkaConfig {
 
     @Value("${spring.kafka.consumer.group-id}")
     private String groupId;
+
+    //@Value("${INSTANCE_ID}")
+    private String instanceId;
+
+    @PostConstruct
+    public void init() {
+        // Получаем INSTANCE_ID из переменной окружения
+        this.instanceId = System.getenv("INSTANCE_ID");
+        if (this.instanceId == null || this.instanceId.isEmpty()) {
+            this.instanceId = "1"; // значение по умолчанию
+        }
+        System.out.println("=== KafkaConfig: instanceId = " + this.instanceId + " ===");
+    }
+
+    public String getInsuranceRequestTopicName() {
+        return String.format("v1.%s.%s.%s.requests", "Insurer", instanceId, "insurer-service");
+    }
+    @Bean
+    public String insuranceRequestTopicName() {
+        return getInsuranceRequestTopicName();
+    }
+
+    public String getInsuranceResponseTopicName() {
+        return String.format("v1.%s.%s.%s.responses", "Insurer", instanceId, "insurer-service");
+    }
+    @Bean
+    public String insuranceResponseTopicName() {
+        return getInsuranceResponseTopicName();
+    }
 
     // Producer Configuration
     @Bean
@@ -69,12 +99,12 @@ public class KafkaConfig {
     // Topics
     @Bean
     public NewTopic insuranceRequestTopic() {
-        return new NewTopic("insurance-requests", 1, (short) 1);
+        return new NewTopic(getInsuranceRequestTopicName(), 3, (short) 1);
     }
 
     @Bean
     public NewTopic insuranceResponseTopic() {
-        return new NewTopic("insurance-responses", 1, (short) 1);
+        return new NewTopic(getInsuranceResponseTopicName(), 3, (short) 1);
     }
 
     @Bean

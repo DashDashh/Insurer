@@ -21,7 +21,7 @@ public class InsuranceConsumer {
         this.insuranceService = insuranceService;
     }
 
-    @KafkaListener(topics = "insurance-requests", groupId = "insurance-group")
+    @KafkaListener(topics = "#{@insuranceRequestTopicName}"/*, groupId = "insurance-group"*/)
     public void consumeInsuranceRequest(InsuranceRequest request) {
         log.info("Received insurance request: {}", request);
 
