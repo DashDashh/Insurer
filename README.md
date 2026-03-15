@@ -10,15 +10,18 @@
 ## Запуск
 ```bash
 mvn clean package
-docker-compose up --build
+docker-compose up --scale insurance-service=<Количество реплик сервиса>
 ```
 
 ## Форматы сообщений для брокера
 
 ### Топики
-На данный момент осуществляется общение через 2 топика "insurance-requests" и "insurance-responses" для запросов и ответов соответственно. Тип запроса определяется с помощью поля requestType, в response указывается также id request'а, которому он соответствует.
+- Формат имени топика: v1.Insurer.<id>.insurer-service.<requests/responses>.
+- Пример: v1.Insurer.ad6e.insurer-service.requests.
+- В качестве id используется HOSTNAME контейнера.
+- На данный момент осуществляется общение через 2 топика "<...>.requests" и "<...>.responses" для запросов и ответов соответственно. Тип запроса определяется с помощью поля requestType, в response указывается также id request'а, которому он соответствует.
 
-### Проверка стоимости, покупка полиса, закрытие полиса. Топик "insurance-requests".
+### Проверка стоимости, покупка полиса, закрытие полиса. Топик "<...>.requests".
 Покупка полиса и его закрытие после выполнения заказа осуществляется аналогичным реквестом, где меняется requestType на PURCHASE и POLICY_TERMINATION соответственно.
 ```json
 {
@@ -38,7 +41,7 @@ docker-compose up --build
 }
 ```
 
-### Обработка инцидента. Топик "insurance-requests".
+### Обработка инцидента. Топик "<...>.requests".
 ```json
 {
   "requestId": "req-123-2026",
@@ -64,7 +67,7 @@ docker-compose up --build
 }
 ```
 
-### Ответ. Топик "insurance-responses".
+### Ответ. Топик "<...>.responses".
 Формирование осуществляется на основе модели (поля, не соответствующие типу запроса остаются null):
 ```java
     private String responseId;
