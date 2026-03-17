@@ -1,5 +1,3 @@
-version: "3.7"
-
 networks:
   kafka-net:
     name: kafka-net
@@ -61,3 +59,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:h2:mem:insurancedb
     networks:
       - kafka-net
+
+  tests:
+    image: tests:latest
+    build: tests
+    restart: "no"
+    entrypoint: "true"
