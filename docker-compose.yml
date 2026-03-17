@@ -54,7 +54,7 @@ services:
     #ports:
     #  - "8082:8082"
     environment:
-      #INSTANCE_ID: "$${HOSTNAME##*-}"
+      INSTANCE_ID: "1"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_DATASOURCE_URL: jdbc:h2:mem:insurancedb
     networks:
@@ -65,3 +65,10 @@ services:
     build: tests
     restart: "no"
     entrypoint: "true"
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      INSURER_INSTANCE_ID: "1"
+    networks:
+      - kafka-net
+    depends_on:
+      - kafka

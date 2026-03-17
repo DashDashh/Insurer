@@ -11,6 +11,11 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 
 COPY entrypoint.sh entrypoint.sh
-RUN chmod +x entrypoint.sh
+RUN chmod +x entrypoint.sh \
+	&& addgroup --system app \
+	&& adduser --system --ingroup app app \
+	&& chown -R app:app /app
+
+USER app
 
 ENTRYPOINT ["/app/entrypoint.sh"]

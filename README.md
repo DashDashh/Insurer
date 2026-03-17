@@ -9,8 +9,10 @@
 
 ## Запуск
 ```bash
-mvn clean package
-docker-compose up --scale insurance-service=<Количество реплик сервиса>
+make docker-up
+
+# Запуск с нужным количеством реплик insurance-service
+make docker-up INSURANCE_REPLICAS=<Количество реплик сервиса>
 ```
 
 ## Форматы сообщений для брокера
