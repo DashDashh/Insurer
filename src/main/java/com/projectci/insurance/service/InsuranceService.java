@@ -77,6 +77,7 @@ public class InsuranceService {
                 .orderId(request.getOrderId())
                 .status(InsuranceResponse.ResponseStatus.SUCCESS)
                 .calculatedCost(kbmService.calculatePolicyCost(request))
+                .coverageAmount(request.getCoverageAmount())
                 .manufacturerKbm(kbmService.getManufacturerKbm(request.getManufacturerId()))
                 .operatorKbm(kbmService.getOperatorKbm(request.getOperatorId()))
                 .message("Расчёт выполнен успешно")
@@ -96,6 +97,7 @@ public class InsuranceService {
                 .policyStartDate(policy.getStartDate())
                 .policyEndDate(policy.getEndDate())
                 .calculatedCost(policy.getCost())
+                .coverageAmount(request.getCoverageAmount())
                 .message("Полис успешно оформлен")
                 .build();
     }
