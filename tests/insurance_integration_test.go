@@ -17,6 +17,7 @@ import (
 const (
 	defaultKafkaReadTimeout = 45 * time.Second
 	defaultDialTimeout      = 2 * time.Second
+	defaultCoverageAmount   = 5000000.00
 )
 
 func TestCalculationRequest(t *testing.T) {
@@ -30,9 +31,10 @@ func TestCalculationRequest(t *testing.T) {
 		"manufacturer_id": uniqueID("manufacturer"),
 		"operator_id":     uniqueID("operator"),
 		"drone_id":        uniqueID("drone"),
-		"security_goals":  []string{"COMMERCIAL_DELIVERY"},
-		"coverage_amount": 25000.00,
+		"security_goals":  []string{"ЦБ1", "ЦБ2"},
+		"coverage_amount": defaultCoverageAmount,
 		"calculation_id":  uniqueID("calc"),
+		"incident":        nil,
 		"request_type":    "CALCULATION",
 	}
 
@@ -58,8 +60,10 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 		"manufacturer_id": uniqueID("manufacturer"),
 		"operator_id":     uniqueID("operator"),
 		"drone_id":        uniqueID("drone"),
-		"security_goals":  []string{"COMMERCIAL_DELIVERY"},
-		"coverage_amount": 35000.00,
+		"security_goals":  []string{"ЦБ1", "ЦБ2"},
+		"coverage_amount": defaultCoverageAmount,
+		"calculation_id":  uniqueID("calc-purchase"),
+		"incident":        nil,
 		"request_type":    "PURCHASE",
 	}
 
@@ -73,9 +77,16 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 
 	terminationRequestID := uniqueID("req-termination")
 	terminationRequest := map[string]any{
-		"request_id":   terminationRequestID,
-		"order_id":     orderID,
-		"request_type": "POLICY_TERMINATION",
+		"request_id":      terminationRequestID,
+		"order_id":        orderID,
+		"manufacturer_id": uniqueID("manufacturer"),
+		"operator_id":     uniqueID("operator"),
+		"drone_id":        uniqueID("drone"),
+		"security_goals":  []string{"ЦБ1", "ЦБ2"},
+		"coverage_amount": defaultCoverageAmount,
+		"calculation_id":  nil,
+		"incident":        nil,
+		"request_type":    "POLICY_TERMINATION",
 	}
 
 	terminationResponse := fx.sendAndReadResponse(t, terminationRequest)
@@ -96,15 +107,16 @@ func TestIncidentRequestSuccess(t *testing.T) {
 		"manufacturer_id": uniqueID("manufacturer"),
 		"operator_id":     uniqueID("operator"),
 		"drone_id":        uniqueID("drone"),
-		"security_goals":  []string{"COMMERCIAL_DELIVERY"},
-		"coverage_amount": 45000.00,
+		"security_goals":  []string{"ЦБ1", "ЦБ2"},
+		"coverage_amount": defaultCoverageAmount,
+		"calculation_id":  nil,
 		"request_type":    "INCIDENT",
 		"incident": map[string]any{
 			"incident_id":   uniqueID("incident"),
 			"order_id":      orderID,
 			"policy_id":     uniqueID("policy"),
 			"damage_amount": 17350.75,
-			"incident_date": time.Now().UTC().Format(time.RFC3339),
+			"incident_date": time.Now().UTC().Format("2006-01-02T15:04:05"),
 			"status":        "REPORTED",
 		},
 	}
@@ -130,9 +142,11 @@ func TestIncidentValidationError(t *testing.T) {
 		"manufacturer_id": uniqueID("manufacturer"),
 		"operator_id":     uniqueID("operator"),
 		"drone_id":        uniqueID("drone"),
-		"security_goals":  []string{"COMMERCIAL_DELIVERY"},
-		"coverage_amount": 50000.00,
+		"security_goals":  []string{"ЦБ1", "ЦБ2"},
+		"coverage_amount": defaultCoverageAmount,
+		"calculation_id":  nil,
 		"request_type":    "INCIDENT",
+		"incident":        nil,
 	}
 
 	response := fx.sendAndReadResponse(t, request)
@@ -151,9 +165,16 @@ func TestTerminationForUnknownOrder(t *testing.T) {
 	requestID := uniqueID("req-termination-missing")
 
 	request := map[string]any{
-		"request_id":   requestID,
-		"order_id":     uniqueID("missing-order"),
-		"request_type": "POLICY_TERMINATION",
+		"request_id":      requestID,
+		"order_id":        uniqueID("missing-order"),
+		"manufacturer_id": uniqueID("manufacturer"),
+		"operator_id":     uniqueID("operator"),
+		"drone_id":        uniqueID("drone"),
+		"security_goals":  []string{"ЦБ1", "ЦБ2"},
+		"coverage_amount": defaultCoverageAmount,
+		"calculation_id":  nil,
+		"incident":        nil,
+		"request_type":    "POLICY_TERMINATION",
 	}
 
 	response := fx.sendAndReadResponse(t, request)
