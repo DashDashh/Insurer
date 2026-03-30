@@ -8,15 +8,31 @@ services:
     image: zookeeper:3.7.0
     container_name: zookeeper
     restart: "no"
+    profiles: ["kafka"]
     networks:
       - kafka-net
     ports:
       - "2181:2181"
 
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    restart: "no"
+    profiles: ["mqtt"]
+    ports:
+      - "1883:1883" # Порт для MQTT
+      - "9001:9001" # Порт для WebSocket (опционально)
+    volumes:
+      # Создаем минимальный конфиг, чтобы разрешить анонимные подключения
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - kafka-net
+
   kafka:
     image: obsidiandynamics/kafka
     container_name: kafka
     restart: "no"
+    profiles: ["kafka"]
     networks:
       - kafka-net
     ports:
@@ -36,6 +52,7 @@ services:
     image: obsidiandynamics/kafdrop
     container_name: kafdrop
     restart: "no"
+    profiles: ["kafka"]
     networks:
       - kafka-net
     ports:
@@ -49,13 +66,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      - kafka
+    #depends_on:
+    #  - kafka
+    #  - mosquitto
     #ports:
     #  - "8082:8082"
     environment:
       INSTANCE_ID: ${INSURANCE_INSTANCE_ID:-}
+      SPRING_PROFILES_ACTIVE: ${MESSAGING_PROFILE}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MQTT_SERVER: tcp://mosquitto:1883
       SPRING_DATASOURCE_URL: jdbc:h2:mem:insurancedb
     networks:
       - kafka-net
@@ -69,5 +89,5 @@ services:
       KAFKA_BROKERS: kafka:29092
     networks:
       - kafka-net
-    depends_on:
-      - kafka
+    #depends_on:
+    #  - kafka
