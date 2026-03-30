@@ -25,26 +25,26 @@ func TestCalculationRequest(t *testing.T) {
 	orderID := uniqueID("order-calc")
 
 	request := map[string]any{
-		"requestId":             requestID,
-		"orderId":               orderID,
-		"manufacturerId":        uniqueID("manufacturer"),
-		"operatorId":            uniqueID("operator"),
-		"droneId":               uniqueID("drone"),
-		"droneSafetyPurpose":    "COMMERCIAL_DELIVERY",
-		"requiredSafetyPurpose": "COMMERCIAL_DELIVERY",
-		"calculationId":         uniqueID("calc"),
-		"requestType":           "CALCULATION",
+		"request_id":      requestID,
+		"order_id":        orderID,
+		"manufacturer_id": uniqueID("manufacturer"),
+		"operator_id":     uniqueID("operator"),
+		"drone_id":        uniqueID("drone"),
+		"security_goals":  []string{"COMMERCIAL_DELIVERY"},
+		"coverage_amount": 25000.00,
+		"calculation_id":  uniqueID("calc"),
+		"request_type":    "CALCULATION",
 	}
 
 	response := fx.sendAndReadResponse(t, request)
 
-	assertEqualStringField(t, response, "requestId", requestID)
-	assertEqualStringField(t, response, "orderId", orderID)
+	assertEqualStringField(t, response, "request_id", requestID)
+	assertEqualStringField(t, response, "order_id", orderID)
 	assertEqualStringField(t, response, "status", "SUCCESS")
-	assertNonEmptyStringField(t, response, "responseId")
-	assertPositiveNumberField(t, response, "calculatedCost")
-	assertPositiveNumberField(t, response, "manufacturerKbm")
-	assertPositiveNumberField(t, response, "operatorKbm")
+	assertNonEmptyStringField(t, response, "response_id")
+	assertPositiveNumberField(t, response, "calculated_cost")
+	assertPositiveNumberField(t, response, "manufacturer_kbm")
+	assertPositiveNumberField(t, response, "operator_kbm")
 }
 
 func TestPurchaseAndTerminationLifecycle(t *testing.T) {
@@ -53,35 +53,35 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 
 	purchaseRequestID := uniqueID("req-purchase")
 	purchaseRequest := map[string]any{
-		"requestId":             purchaseRequestID,
-		"orderId":               orderID,
-		"manufacturerId":        uniqueID("manufacturer"),
-		"operatorId":            uniqueID("operator"),
-		"droneId":               uniqueID("drone"),
-		"droneSafetyPurpose":    "COMMERCIAL_DELIVERY",
-		"requiredSafetyPurpose": "COMMERCIAL_DELIVERY",
-		"requestType":           "PURCHASE",
+		"request_id":      purchaseRequestID,
+		"order_id":        orderID,
+		"manufacturer_id": uniqueID("manufacturer"),
+		"operator_id":     uniqueID("operator"),
+		"drone_id":        uniqueID("drone"),
+		"security_goals":  []string{"COMMERCIAL_DELIVERY"},
+		"coverage_amount": 35000.00,
+		"request_type":    "PURCHASE",
 	}
 
 	purchaseResponse := fx.sendAndReadResponse(t, purchaseRequest)
 
-	assertEqualStringField(t, purchaseResponse, "requestId", purchaseRequestID)
-	assertEqualStringField(t, purchaseResponse, "orderId", orderID)
+	assertEqualStringField(t, purchaseResponse, "request_id", purchaseRequestID)
+	assertEqualStringField(t, purchaseResponse, "order_id", orderID)
 	assertEqualStringField(t, purchaseResponse, "status", "SUCCESS")
-	assertNonEmptyStringField(t, purchaseResponse, "policyId")
-	assertPositiveNumberField(t, purchaseResponse, "calculatedCost")
+	assertNonEmptyStringField(t, purchaseResponse, "policy_id")
+	assertPositiveNumberField(t, purchaseResponse, "calculated_cost")
 
 	terminationRequestID := uniqueID("req-termination")
 	terminationRequest := map[string]any{
-		"requestId":   terminationRequestID,
-		"orderId":     orderID,
-		"requestType": "POLICY_TERMINATION",
+		"request_id":   terminationRequestID,
+		"order_id":     orderID,
+		"request_type": "POLICY_TERMINATION",
 	}
 
 	terminationResponse := fx.sendAndReadResponse(t, terminationRequest)
 
-	assertEqualStringField(t, terminationResponse, "requestId", terminationRequestID)
-	assertEqualStringField(t, terminationResponse, "orderId", orderID)
+	assertEqualStringField(t, terminationResponse, "request_id", terminationRequestID)
+	assertEqualStringField(t, terminationResponse, "order_id", orderID)
 	assertEqualStringField(t, terminationResponse, "status", "SUCCESS")
 }
 
@@ -91,33 +91,33 @@ func TestIncidentRequestSuccess(t *testing.T) {
 	orderID := uniqueID("order-incident")
 
 	request := map[string]any{
-		"requestId":             requestID,
-		"orderId":               orderID,
-		"manufacturerId":        uniqueID("manufacturer"),
-		"operatorId":            uniqueID("operator"),
-		"droneId":               uniqueID("drone"),
-		"droneSafetyPurpose":    "COMMERCIAL_DELIVERY",
-		"requiredSafetyPurpose": "COMMERCIAL_DELIVERY",
-		"requestType":           "INCIDENT",
+		"request_id":      requestID,
+		"order_id":        orderID,
+		"manufacturer_id": uniqueID("manufacturer"),
+		"operator_id":     uniqueID("operator"),
+		"drone_id":        uniqueID("drone"),
+		"security_goals":  []string{"COMMERCIAL_DELIVERY"},
+		"coverage_amount": 45000.00,
+		"request_type":    "INCIDENT",
 		"incident": map[string]any{
-			"incidentId":   uniqueID("incident"),
-			"orderId":      orderID,
-			"policyId":     uniqueID("policy"),
-			"damageAmount": 17350.75,
-			"incidentDate": time.Now().UTC().Format(time.RFC3339),
-			"status":       "REPORTED",
+			"incident_id":   uniqueID("incident"),
+			"order_id":      orderID,
+			"policy_id":     uniqueID("policy"),
+			"damage_amount": 17350.75,
+			"incident_date": time.Now().UTC().Format(time.RFC3339),
+			"status":        "REPORTED",
 		},
 	}
 
 	response := fx.sendAndReadResponse(t, request)
 
-	assertEqualStringField(t, response, "requestId", requestID)
-	assertEqualStringField(t, response, "orderId", orderID)
+	assertEqualStringField(t, response, "request_id", requestID)
+	assertEqualStringField(t, response, "order_id", orderID)
 	assertEqualStringField(t, response, "status", "SUCCESS")
-	assertPositiveNumberField(t, response, "coverageAmount")
-	assertPositiveNumberField(t, response, "paymentAmount")
-	assertPositiveNumberField(t, response, "newManufacturerKbm")
-	assertPositiveNumberField(t, response, "newOperatorKbm")
+	assertPositiveNumberField(t, response, "coverage_amount")
+	assertPositiveNumberField(t, response, "payment_amount")
+	assertPositiveNumberField(t, response, "new_manufacturer_kbm")
+	assertPositiveNumberField(t, response, "new_operator_kbm")
 }
 
 func TestIncidentValidationError(t *testing.T) {
@@ -125,18 +125,19 @@ func TestIncidentValidationError(t *testing.T) {
 	requestID := uniqueID("req-incident-error")
 
 	request := map[string]any{
-		"requestId":             requestID,
-		"orderId":               uniqueID("order-incident-error"),
-		"manufacturerId":        uniqueID("manufacturer"),
-		"operatorId":            uniqueID("operator"),
-		"droneSafetyPurpose":    "COMMERCIAL_DELIVERY",
-		"requiredSafetyPurpose": "COMMERCIAL_DELIVERY",
-		"requestType":           "INCIDENT",
+		"request_id":      requestID,
+		"order_id":        uniqueID("order-incident-error"),
+		"manufacturer_id": uniqueID("manufacturer"),
+		"operator_id":     uniqueID("operator"),
+		"drone_id":        uniqueID("drone"),
+		"security_goals":  []string{"COMMERCIAL_DELIVERY"},
+		"coverage_amount": 50000.00,
+		"request_type":    "INCIDENT",
 	}
 
 	response := fx.sendAndReadResponse(t, request)
 
-	assertEqualStringField(t, response, "requestId", requestID)
+	assertEqualStringField(t, response, "request_id", requestID)
 	assertEqualStringField(t, response, "status", "FAILED")
 
 	message := getStringField(t, response, "message")
@@ -150,14 +151,14 @@ func TestTerminationForUnknownOrder(t *testing.T) {
 	requestID := uniqueID("req-termination-missing")
 
 	request := map[string]any{
-		"requestId":   requestID,
-		"orderId":     uniqueID("missing-order"),
-		"requestType": "POLICY_TERMINATION",
+		"request_id":   requestID,
+		"order_id":     uniqueID("missing-order"),
+		"request_type": "POLICY_TERMINATION",
 	}
 
 	response := fx.sendAndReadResponse(t, request)
 
-	assertEqualStringField(t, response, "requestId", requestID)
+	assertEqualStringField(t, response, "request_id", requestID)
 	assertEqualStringField(t, response, "status", "FAILED")
 }
 
@@ -185,7 +186,7 @@ func newKafkaFixture(t *testing.T) kafkaFixture {
 func (f kafkaFixture) sendAndReadResponse(t *testing.T, request map[string]any) map[string]any {
 	t.Helper()
 
-	requestID := getStringField(t, request, "requestId")
+	requestID := getStringField(t, request, "request_id")
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:     f.brokers,
@@ -243,7 +244,7 @@ func (f kafkaFixture) sendAndReadResponse(t *testing.T, request map[string]any) 
 			continue
 		}
 
-		if getStringFieldNoFail(response, "requestId") != requestID {
+		if getStringFieldNoFail(response, "request_id") != requestID {
 			continue
 		}
 
