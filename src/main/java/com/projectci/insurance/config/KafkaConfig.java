@@ -1,5 +1,7 @@
 package com.projectci.insurance.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
@@ -23,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 @Configuration
+@Profile("kafka")
 public class KafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")
@@ -43,6 +47,11 @@ public class KafkaConfig {
         }
         System.out.println("=== KafkaConfig: instanceId = " + this.instanceId + " ===");
     }
+
+    /*@Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper().registerModule(new JavaTimeModule());
+    }*/
 
     public String getInsuranceRequestTopicName() {
         return String.format("v1.%s.%s.%s.requests", "Insurer", instanceId, "insurer-service");
