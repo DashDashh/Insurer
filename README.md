@@ -4,6 +4,7 @@
 ## Стек
 - Java 17
 - Apache Kafka
+- Mosquitto
 - Docker
 - H2 db (inmemory база данных, позже переведём на PostgreSQL)
 
@@ -14,6 +15,20 @@ make docker-up
 # Запуск с нужным количеством реплик insurance-service
 make docker-up INSURANCE_REPLICAS=<Количество реплик сервиса>
 ```
+
+## Системные переменные для переключения между брокерами
+В файле .env нужно установить необходимый профиль kafka/mqtt для соответствующего брокера
+Для Mosquitto:
+```
+MESSAGING_PROFILE=mqtt
+COMPOSE_PROFILES=mqtt
+```
+Для Kafka:
+```
+MESSAGING_PROFILE=kafka
+COMPOSE_PROFILES=kafka
+```
+
 
 ## Форматы сообщений для брокера
 
