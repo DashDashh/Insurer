@@ -3,6 +3,7 @@ package com.projectci.insurance.consumer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectci.insurance.model.InsuranceRequest;
+import com.projectci.insurance.model.MessageRequest;
 import com.projectci.insurance.service.InsuranceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
@@ -26,10 +27,13 @@ public class MqttInsuranceConsumer {
     public void consumeMqtt(String payload) {
         try {
             log.info("Received via MQTT: {}", payload);
-            InsuranceRequest request = objectMapper.readValue(payload, InsuranceRequest.class);
-            insuranceService.processInsuranceRequest(request);
+            MessageRequest message = objectMapper.readValue(payload, MessageRequest.class);
+            insuranceService.processInsuranceRequest(message);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize MQTT message: {}", payload, e);
+        } catch (Exception e) {
+            log.error("Error processing MQTT request", e);
+            // TODO: отправить в dead letters
         }
     }
 }

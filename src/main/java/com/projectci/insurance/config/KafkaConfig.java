@@ -2,7 +2,9 @@ package com.projectci.insurance.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.projectci.insurance.utils.NamespaceUtils;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -12,9 +14,12 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.event.EventListener;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
@@ -27,7 +32,11 @@ import java.util.Map;
 
 @Configuration
 @Profile("kafka")
+@RequiredArgsConstructor
 public class KafkaConfig {
+
+    private final NamespaceUtils namespaceUtils;
+    private final TopicConfig topicConfig;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -38,14 +47,20 @@ public class KafkaConfig {
     //@Value("${INSTANCE_ID}")
     private String instanceId;
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void init() {
         // Получаем INSTANCE_ID из переменной окружения
         this.instanceId = System.getenv("INSTANCE_ID");
         if (this.instanceId == null || this.instanceId.isEmpty()) {
             this.instanceId = "1"; // значение по умолчанию
         }
+
+        // Теперь namespaceUtils уже инициализирован
+        String topicName = getInsuranceRequestTopicName();
+
         System.out.println("=== KafkaConfig: instanceId = " + this.instanceId + " ===");
+        System.out.println("=== Current namespace: " + namespaceUtils.getCurrentNamespace() + " ===");
+        System.out.println("=== Kafka Consumer will listen to: " + topicName + " ===");
     }
 
     /*@Bean
@@ -54,20 +69,21 @@ public class KafkaConfig {
     }*/
 
     public String getInsuranceRequestTopicName() {
-        return String.format("v1.%s.%s.%s.requests", "Insurer", instanceId, "insurer-service");
+        //return String.format("v1.%s.%s.%s.requests", "Insurer", instanceId, "insurer-service");
+        return topicConfig.getSystemTopic("insurance_system");
     }
     @Bean
     public String insuranceRequestTopicName() {
         return getInsuranceRequestTopicName();
     }
 
-    public String getInsuranceResponseTopicName() {
+    /*public String getInsuranceResponseTopicName() {
         return String.format("v1.%s.%s.%s.responses", "Insurer", instanceId, "insurer-service");
     }
     @Bean
     public String insuranceResponseTopicName() {
         return getInsuranceResponseTopicName();
-    }
+    }*/
 
     // Producer Configuration
     @Bean
@@ -93,7 +109,7 @@ public class KafkaConfig {
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
         config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.projectci.insurance.model");
-        config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, "com.projectci.insurance.model.InsuranceRequest");
+        config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, "com.projectci.insurance.model.MessageRequest");
         return new DefaultKafkaConsumerFactory<>(config);
     }
 
@@ -111,10 +127,12 @@ public class KafkaConfig {
         return new NewTopic(getInsuranceRequestTopicName(), 3, (short) 1);
     }
 
+/*
     @Bean
     public NewTopic insuranceResponseTopic() {
         return new NewTopic(getInsuranceResponseTopicName(), 3, (short) 1);
     }
+*/
 
     @Bean
     public NewTopic incidentTopic() {
