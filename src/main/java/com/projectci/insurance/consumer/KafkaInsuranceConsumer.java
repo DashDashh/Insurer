@@ -1,6 +1,7 @@
 package com.projectci.insurance.consumer;
 
-import com.projectci.insurance.model.InsuranceRequest;
+import com.projectci.insurance.model.MessageRequest;
+import com.projectci.insurance.model.MessageResponse;
 import com.projectci.insurance.service.InsuranceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
@@ -19,10 +20,10 @@ public class KafkaInsuranceConsumer {
     }
 
     @KafkaListener(topics = "#{@insuranceRequestTopicName}")
-    public void consumeKafka(InsuranceRequest request) {
-        log.info("Received via Kafka: {}", request);
+    public void consumeKafka(MessageRequest message) {
+        log.info("Received via Kafka: {}", message);
         try {
-            insuranceService.processInsuranceRequest(request);
+            insuranceService.processInsuranceRequest(message);
         } catch (Exception e) {
             log.error("Error processing Kafka request", e);
         }

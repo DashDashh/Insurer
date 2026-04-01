@@ -3,7 +3,7 @@ spring:
     name: insurance-microservice
 
   profiles:
-    active: mqtt
+    active: ${MESSAGING_PROFILE:}
 
   logging:
     level:
@@ -21,17 +21,19 @@ spring:
       properties:
         create.timeout.ms: 60000
     consumer:
-      group-id: "insurance-group"
+      group-id: ${spring.application.name}-${system.namespace:default}
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "com.insurance.model"
-        spring.json.value.default.type: "com.insurance.model.InsuranceRequest"
+        spring.json.value.default.type: "com.insurance.model.MessageRequest"
 
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.type.mapping: "com.insurance.model.MessageResponse"
 
   # Database Configuration (H2 for development)
   datasource:
@@ -53,6 +55,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+system:
+  namespace: ${SYSTEM_NAMESPACE:}
 
 # Server Configuration
 server:

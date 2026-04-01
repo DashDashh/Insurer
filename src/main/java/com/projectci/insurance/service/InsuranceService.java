@@ -1,10 +1,13 @@
 package com.projectci.insurance.service;
 
+import com.projectci.insurance.config.TopicConfig;
 import com.projectci.insurance.model.*;
 import com.projectci.insurance.producer.MessagePublisher;
+import com.projectci.insurance.utils.NamespaceUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -16,33 +19,45 @@ import java.util.UUID;
 @Slf4j
 public class InsuranceService {
 
-    //private final KafkaTemplate<String, Object> kafkaTemplate;
     private final MessagePublisher messagePublisher;
     private final PolicyService policyService;
     private final IncidentService incidentService;
     private final KbmService kbmService;
-    private final String responseTopic;
+    private final TopicConfig topicConfig;
+    private final NamespaceUtils namespaceUtils;
+    private final String systemId;
 
     public InsuranceService(
             MessagePublisher messagePublisher,
             PolicyService policyService,
             IncidentService incidentService,
             KbmService kbmService,
-            @Qualifier("insuranceResponseTopicName") String responseTopic) {  // Инъекция имени топика
+            TopicConfig topicConfig,
+            NamespaceUtils namespaceUtils,
+            @Value("${spring.application.name:insurance-service}") String applicationName) {
 
         this.messagePublisher = messagePublisher;
         this.policyService = policyService;
         this.incidentService = incidentService;
         this.kbmService = kbmService;
-        this.responseTopic = responseTopic;
+        this.topicConfig = topicConfig;
+        this.namespaceUtils = namespaceUtils;
+
+        // Формируем уникальный ID отправителя с учетом namespace
+        this.systemId = namespaceUtils.hasNamespace()
+                ? namespaceUtils.getCurrentNamespace() + "." + applicationName
+                : applicationName;
     }
 
-    public void processInsuranceRequest(InsuranceRequest request) {
-        //log.info("Processing insurance request: {}", request);
+    public void processInsuranceRequest(MessageRequest message) {
+        log.info("Processing insurance request: {}, from system: {}",
+                message.getPayload().getRequestType(), systemId);
 
+        InsuranceRequest request = message.getPayload();
         InsuranceResponse response = null;
 
         try {
+            // Обработка запроса
             switch (request.getRequestType()) {
                 case CALCULATION:
                     response = processCalculation(request);
@@ -60,17 +75,66 @@ public class InsuranceService {
                     response = createErrorResponse(request, "Unknown request type");
             }
 
-            // Отправка ответа в брокер
-            messagePublisher.send(responseTopic, response.getOrderId(), response);
-            //kafkaTemplate.send(responseTopic, response.getOrderId(), response);
-            //log.info("Response sent: {}", response);
+            // Создаем сообщение в правильном формате
+            MessageResponse messageOut = MessageResponse.createResponse(
+                    request.getRequestId(), // correlationId
+                    response
+            );
+
+            // Определяем топик для ответа (с учетом namespace)
+            // Ответ отправляем в системный топик отправителя или в компонентный топик
+            String responseTopic = determineResponseTopic(message);
+
+            // Отправка ответа
+            messagePublisher.send(
+                    responseTopic,
+                    response.getOrderId(),
+                    messageOut
+            );
+
+            log.info("Response sent to topic: {}, correlationId: {}",
+                    responseTopic, messageOut.getCorrelationId());
 
         } catch (Exception e) {
-            //log.error("Error processing request: {}", request, e);
+            log.error("Error processing request: {}", request, e);
+
+            // Создаем сообщение об ошибке
             InsuranceResponse errorResponse = createErrorResponse(request, e.getMessage());
-            //kafkaTemplate.send(responseTopic, errorResponse.getOrderId(), errorResponse);
-            messagePublisher.send(responseTopic, errorResponse.getOrderId(), errorResponse);
+            MessageResponse errorMessage = MessageResponse.createResponse(
+                    request.getRequestId(),
+                    errorResponse
+            );
+
+            // Отправляем в dead letters
+            messagePublisher.send(
+                    TopicConfig.DEAD_LETTERS_TOPIC,
+                    errorResponse.getOrderId(),
+                    errorMessage
+            );
         }
+    }
+
+    /**
+     * Определяет топик для ответа
+     * Если отправитель указал конкретный топик - используем его
+     * Иначе отправляем в системный топик отправителя
+     */
+    private String determineResponseTopic(MessageRequest message) {
+        // ОПЦИЯ на потом
+        // Если в запросе указан топик для ответа
+        /*if (message.getResponseTopic() != null && !message.getResponseTopic().isEmpty()) {
+            return request.getResponseTopic();
+        }*/
+
+        // Если указан отправитель - отправляем в его системный топик
+        if (message.getSender() != null && !message.getSender().isEmpty()) {
+            return topicConfig.getSystemTopic(message.getSender());
+        }
+
+        // По умолчанию отправляем в наш компонентный топик (для отладки)
+        return topicConfig.getComponentTopic(
+                TopicConfig.InsuranceSystem.Components.INSURANCE_SERVICE
+        );
     }
 
     private InsuranceResponse processCalculation(InsuranceRequest request) {

@@ -3,12 +3,15 @@ package com.projectci.insurance.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.event.EventListener;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.core.MessageProducer;
@@ -23,7 +26,10 @@ import org.springframework.messaging.converter.MessageConverter;
 
 @Configuration
 @Profile("mqtt")
+@RequiredArgsConstructor
 public class MqttConfig {
+
+    private final TopicConfig topicConfig;
 
     private String instanceId;
     @Value("${MQTT_SERVER:tcp://localhost:1883}")
@@ -42,7 +48,7 @@ public class MqttConfig {
         return factory;
     }
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void init() {
         // Получаем INSTANCE_ID из переменной окружения
         this.instanceId = System.getenv("INSTANCE_ID");
@@ -54,20 +60,21 @@ public class MqttConfig {
     }
 
     public String getInsuranceRequestTopicName() {
-        return String.format("v1.%s.%s.%s.requests", "Insurer", instanceId, "insurer-service");
+        //return String.format("v1.%s.%s.%s.requests", "Insurer", instanceId, "insurer-service");
+        return topicConfig.getSystemTopic("insurance_system");
     }
     @Bean
     public String insuranceRequestTopicName() {
         return getInsuranceRequestTopicName();
     }
 
-    public String getInsuranceResponseTopicName() {
+    /*public String getInsuranceResponseTopicName() {
         return String.format("v1.%s.%s.%s.responses", "Insurer", instanceId, "insurer-service");
     }
     @Bean
     public String insuranceResponseTopicName() {
         return getInsuranceResponseTopicName();
-    }
+    }*/
 
     // Outbound (Sending)
     @Bean
