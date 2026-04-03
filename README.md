@@ -33,170 +33,246 @@ COMPOSE_PROFILES=kafka
 ## Форматы сообщений для брокера
 
 ### Топики
-- Формат имени топика: v1.Insurer.<replication_id>.insurer-service.<requests/responses>.
-- Пример: v1.Insurer.ad6e.insurer-service.requests.
-- В качестве id используется HOSTNAME контейнера.
-- На данный момент осуществляется общение через 2 топика "<...>.requests" и "<...>.responses" для запросов и ответов соответственно. Тип запроса определяется с помощью поля requestType, в response указывается также id request'а, которому он соответствует.
+- Слушаем: ```systems.insurance_system```
+- Отвечаем в ```systems.<sender_from_request>```
 
-### Проверка стоимости, закрытие полиса. Топик "<...>.requests".
-Покупка полиса и его закрытие после выполнения заказа осуществляется аналогичным реквестом, где меняется requestType на PURCHASE и POLICY_TERMINATION соответственно.
-```json
-{
-  "request_id": "req-20260319-001",
-  "order_id": "order-12345",
-  "manufacturer_id": "manuf-001",
-  "operator_id": "oper-001",
-  "drone_id": "drone-789",
-  "security_goals": [
-    "ЦБ1",
-    "ЦБ2"
-  ],
-  "coverage_amount": 5000000.00,
-  "calculation_id": "calc-678-2026",
-  "incident": null,
-  "request_type": "CALCULATION"
-}
-```
+### Запросы
+Request, хранящийся в payload, для любого запроса имеет одинаковую структуру. Поля, не относящиеся к типу запроса остаются null. Тип запроса указывается в поле request_type.
 
-### Покупка полиса. Топик "<...>.requests".
+### ПРИМЕРЫ:
+
+### Проверка стоимости.
+
+#### Запрос:
 ```json
 {
-  "request_id": "req-20260319-001",
-  "order_id": "order-12345",
-  "manufacturer_id": "manuf-001",
-  "operator_id": "oper-001",
-  "drone_id": "drone-789",
-  "security_goals": [
-    "ЦБ1",
-    "ЦБ2"
-  ],
-  "coverage_amount": 5000000.00,
-  "calculation_id": "calc-678-2026",
-  "incident": null,
-  "request_type": "PURCHASE"
-}
-```
-### Обработка инцидента. Топик "<...>.requests".
-```json
-{
-  "request_id": "req-20260320-001",
-  "order_id": "order-12345",
-  "manufacturer_id": "manuf-001",
-  "operator_id": "oper-001",
-  "drone_id": "drone-789",
-  "security_goals": ["ЦБ1", "ЦБ2"],
-  "coverage_amount": 5000000.00,
-  "calculation_id": null,
-  "incident": {
-    "id": null,
-    "incident_id": "inc-20260320-001",
+  "message_id": "msg-001-2026",
+  "action": "CALCULATION",
+  "sender": "operator",
+  "correlation_id": "corr-123-2026",
+  "timestamp": 1743552000000,
+  "payload": {
+    "request_id": "req-20260319-001",
     "order_id": "order-12345",
-    "policy_id": "401479e6-9021-477f-83f9-50efd1e64da3",
-    "damage_amount": 150000.00,
-    "incident_date": "2026-03-20T14:30:00",
-    "status": "REPORTED"
+    "manufacturer_id": "manuf-001",
+    "operator_id": "oper-001",
+    "drone_id": "drone-789",
+    "security_goals": [
+      "ЦБ1",
+      "ЦБ2"
+    ],
+    "coverage_amount": 5000000.00,
+    "calculation_id": "calc-678-2026",
+    "incident": null,
+    "request_type": "CALCULATION"
   },
-  "request_type": "INCIDENT"
+  "message_type": "request",
+  "headers": {
+    "version": "1.0",
+    "source": "insurance-api"
+  }
+}
+```
+#### Ответ:
+```json
+{
+  "message_id": "f0703581-3b0a-4218-91bc-3b4b9c1a223f",
+  "correlation_id": "req-20260319-001",
+  "timestamp": 1775243455910,
+  "payload": {
+    "calculated_cost": 1000,
+    "coverage_amount": 5000000,
+    "manufacturer_kbm": 1,
+    "message": "Расчёт выполнен успешно",
+    "new_manufacturer_kbm": null,
+    "new_operator_kbm": null,
+    "operator_kbm": 1,
+    "order_id": "order-12345",
+    "payment_amount": null,
+    "policy_end_date": null,
+    "policy_id": null,
+    "policy_start_date": null,
+    "request_id": "req-20260319-001",
+    "response_id": "349f1af7-d6b8-4ca4-8e75-4cb5ffc22be8",
+    "status": "SUCCESS"
+  },
+  "message_type": "response"
 }
 ```
 
-### Прекращение полиса. Топик "<...>.requests".
+### Покупка полиса.
+#### Запрос:
 ```json
 {
-  "request_id": "req-20260320-003",
-  "order_id": "order-12345",
-  "manufacturer_id": "manuf-001",
-  "operator_id": "oper-001",
-  "drone_id": "drone-789",
-  "security_goals": ["ЦБ1", "ЦБ2"],
-  "coverage_amount": 5000000.00,
-  "calculation_id": null,
-  "incident": null,
-  "request_type": "POLICY_TERMINATION"
+  "message_id": "msg-002-2026",
+  "action": "PURCHASE",
+  "sender": "operator",
+  "correlation_id": "corr-124-2026",
+  "timestamp": 1743552000000,
+  "payload": {
+    "request_id": "req-20260319-001",
+    "order_id": "order-12345",
+    "manufacturer_id": "manuf-001",
+    "operator_id": "oper-001",
+    "drone_id": "drone-789",
+    "security_goals": [
+      "ЦБ1",
+      "ЦБ2"
+    ],
+    "coverage_amount": 5000000.00,
+    "calculation_id": "calc-678-2026",
+    "incident": null,
+    "request_type": "PURCHASE"
+  },
+  "message_type": "request",
+  "headers": {
+    "version": "1.0",
+    "source": "insurance-api"
+  }
+}
+```
+#### Ответ:
+```json
+{
+  "message_id": "ac0a0ef0-8b28-48cc-96a1-a71034f585e4",
+  "correlation_id": "req-20260319-001",
+  "timestamp": 1775243532529,
+  "payload": {
+    "calculated_cost": 1000,
+    "coverage_amount": 5000000,
+    "manufacturer_kbm": null,
+    "message": "Полис успешно оформлен",
+    "new_manufacturer_kbm": null,
+    "new_operator_kbm": null,
+    "operator_kbm": null,
+    "order_id": "order-12345",
+    "payment_amount": null,
+    "policy_end_date": "2026-05-03T19:12:12.421197944",
+    "policy_id": "39d41898-459b-4c87-9e53-e6a371ea09bc",
+    "policy_start_date": "2026-04-03T19:12:12.421171173",
+    "request_id": "req-20260319-001",
+    "response_id": "23f00e8f-3452-4878-8eea-630440fbc3c9",
+    "status": "SUCCESS"
+  },
+  "message_type": "response"
 }
 ```
 
-### Ответ. Топик "<...>.responses".
-Поля, не соответствующие типу запроса остаются null
-
-### Пример для расчёта стоимости полиса:
+### Обработка инцидента.
+#### Запрос:
 ```json
 {
-  "calculated_cost": 1000.00,
-  "coverage_amount": 5000000.00,
-  "manufacturer_kbm": 1.0,
-  "message": "Расчёт выполнен успешно",
-  "new_manufacturer_kbm": null,
-  "new_operator_kbm": null,
-  "operator_kbm": 1.0,
-  "order_id": "order-12345",
-  "payment_amount": null,
-  "policy_end_date": null,
-  "policy_id": null,
-  "policy_start_date": null,
-  "request_id": "req-20260319-001",
-  "response_id": "447e2e4a-8c1f-44d0-af1d-47c4381852d1",
-  "status": "SUCCESS"
+  "message_id": "msg-003-2026",
+  "action": "INCIDENT",
+  "sender": "operator",
+  "correlation_id": "corr-125-2026",
+  "timestamp": 1743552000000,
+  "payload": {
+    "request_id": "req-20260320-001",
+    "order_id": "order-12345",
+    "manufacturer_id": "manuf-001",
+    "operator_id": "oper-001",
+    "drone_id": "drone-789",
+    "security_goals": ["ЦБ1", "ЦБ2"],
+    "coverage_amount": 5000000.00,
+    "calculation_id": null,
+    "incident": {
+      "id": null,
+      "incident_id": "inc-20260320-001",
+      "order_id": "order-12345",
+      "policy_id": "401479e6-9021-477f-83f9-50efd1e64da3",
+      "damage_amount": 150000.00,
+      "incident_date": "2026-03-20T14:30:00",
+      "status": "REPORTED"
+    },
+    "request_type": "INCIDENT"
+  },
+  "message_type": "request",
+  "headers": {
+    "version": "1.0",
+    "source": "insurance-api"
+  }
+}
+```
+#### Ответ:
+```json
+{
+  "message_id": "f41b91dc-b5ba-44c9-8fc2-ee083f5ea38c",
+  "correlation_id": "req-20260320-001",
+  "timestamp": 1775243567393,
+  "payload": {
+    "calculated_cost": null,
+    "coverage_amount": 150000,
+    "manufacturer_kbm": null,
+    "message": "Инцидент обработан, произведена выплата",
+    "new_manufacturer_kbm": 1.1,
+    "new_operator_kbm": 1.1,
+    "operator_kbm": null,
+    "order_id": "order-12345",
+    "payment_amount": 150000,
+    "policy_end_date": null,
+    "policy_id": null,
+    "policy_start_date": null,
+    "request_id": "req-20260320-001",
+    "response_id": "2a40fb05-42e9-4445-9279-4f64574dba57",
+    "status": "SUCCESS"
+  },
+  "message_type": "response"
 }
 ```
 
-### Пример для покупки полиса:
+### Прекращение полиса.
+#### Запрос:
 ```json
 {
-  "calculated_cost": 1000,
-  "coverage_amount": 5000000.00,
-  "manufacturer_kbm": null,
-  "message": "Полис успешно оформлен",
-  "new_manufacturer_kbm": null,
-  "new_operator_kbm": null,
-  "operator_kbm": null,
-  "order_id": "order-12345",
-  "payment_amount": null,
-  "policy_end_date": "2026-04-19T18:08:04.101425209",
-  "policy_id": "401479e6-9021-477f-83f9-50efd1e64da3",
-  "policy_start_date": "2026-03-20T18:08:04.101357411",
-  "request_id": "req-20260319-001",
-  "response_id": "daab02dc-a533-4c42-9d68-f60181716a22",
-  "status": "SUCCESS"
+  "message_id": "msg-004-2026",
+  "action": "INSURANCE_REQUEST",
+  "sender": "operator",
+  "correlation_id": "corr-126-2026",
+  "timestamp": 1743552000000,
+  "payload": {
+    "request_id": "req-20260320-003",
+    "order_id": "order-12345",
+    "manufacturer_id": "manuf-001",
+    "operator_id": "oper-001",
+    "drone_id": "drone-789",
+    "security_goals": ["ЦБ1", "ЦБ2"],
+    "coverage_amount": 5000000.00,
+    "calculation_id": null,
+    "incident": null,
+    "request_type": "POLICY_TERMINATION"
+  },
+  "message_type": "request",
+  "headers": {
+    "version": "1.0",
+    "source": "insurance-api",
+    "reason": "operator_request"
+  }
 }
 ```
-### Пример для обработки инцидента:
+#### Ответ:
 ```json
 {
-  "calculated_cost": null,
-  "coverage_amount": 150000.00,
-  "manufacturer_kbm": null,
-  "message": "Инцидент обработан, произведена выплата",
-  "new_manufacturer_kbm": 1.10,
-  "new_operator_kbm": 1.10,
-  "operator_kbm": null,
-  "order_id": "order-12345",
-  "payment_amount": 150000.00,
-  "policy_end_date": null,
-  "policy_id": null,
-  "policy_start_date": null,
-  "request_id": "req-20260320-001",
-  "response_id": "be4bfac6-a38f-4803-af40-55b9e0752560",
-  "status": "SUCCESS"
-}
-```
-### Пример для прекращения полиса:
-```json
-{
-  "calculated_cost": null,
-  "coverage_amount": null,
-  "manufacturer_kbm": null,
-  "message": "Полис успешно прекращён",
-  "new_manufacturer_kbm": null,
-  "new_operator_kbm": null,
-  "operator_kbm": null,
-  "order_id": "order-12345",
-  "payment_amount": null,
-  "policy_end_date": null,
-  "policy_id": null,
-  "policy_start_date": null,
-  "request_id": "req-20260320-003",
-  "response_id": "43eddff1-bfec-42c0-8fbb-b4ccc7b90d02",
-  "status": "SUCCESS"
+  "message_id": "128ec071-a419-42d7-b03c-cc1c384ed0c2",
+  "correlation_id": "req-20260320-003",
+  "timestamp": 1775243592393,
+  "payload": {
+    "calculated_cost": null,
+    "coverage_amount": null,
+    "manufacturer_kbm": null,
+    "message": "Полис успешно прекращён",
+    "new_manufacturer_kbm": null,
+    "new_operator_kbm": null,
+    "operator_kbm": null,
+    "order_id": "order-12345",
+    "payment_amount": null,
+    "policy_end_date": null,
+    "policy_id": null,
+    "policy_start_date": null,
+    "request_id": "req-20260320-003",
+    "response_id": "9c7504eb-0c4d-4abc-8055-57eccbd8e3cb",
+    "status": "SUCCESS"
+  },
+  "message_type": "response"
 }
 ```
