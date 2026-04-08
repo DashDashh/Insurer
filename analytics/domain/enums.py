@@ -1,0 +1,8 @@
+from enum import Enum
+
+
+class ActionType(str, Enum):
+    CALCULATION = "CALCULATION"
+    INCIDENT = "INCIDENT"
+    KBM_UPDATE = "KBM_UPDATE"
+    POLICY_TERMINATION = "POLICY_TERMINATION"
