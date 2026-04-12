@@ -3,7 +3,7 @@ spring:
     name: insurance-microservice
 
   profiles:
-    active: ${BROKER_TYPE:-kafka}
+    active: "kafka"
 
   logging:
     level:

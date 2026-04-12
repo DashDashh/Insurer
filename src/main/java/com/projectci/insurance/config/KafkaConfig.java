@@ -85,6 +85,21 @@ public class KafkaConfig {
         return getInsuranceResponseTopicName();
     }*/
 
+    // SASL helper
+    private void applySasl(Map<String, Object> config) {
+        String protocol = System.getenv("SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL");
+        if (protocol != null && !protocol.isEmpty()) {
+            config.put("security.protocol", protocol);
+            config.put("sasl.mechanism",
+                    System.getenv("SPRING_KAFKA_PROPERTIES_SASL_MECHANISM"));
+            config.put("sasl.jaas.config",
+                    System.getenv("SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG"));
+        }
+        /*System.out.println("=== KafkaConfig: protocol = " + protocol + " ===");
+        System.out.println("=== KafkaConfig: sasl.mechanism = " + System.getenv("SPRING_KAFKA_PROPERTIES_SASL_MECHANISM") + " ===");
+        System.out.println("=== KafkaConfig: sasl.jaas.config = " + System.getenv("SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG") + " ===");*/
+    }
+
     // Producer Configuration
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
@@ -92,6 +107,7 @@ public class KafkaConfig {
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
+        applySasl(config);
         return new DefaultKafkaProducerFactory<>(config);
     }
 
@@ -110,6 +126,7 @@ public class KafkaConfig {
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
         config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.projectci.insurance.model");
         config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, "com.projectci.insurance.model.MessageRequest");
+        applySasl(config);
         return new DefaultKafkaConsumerFactory<>(config);
     }
 
