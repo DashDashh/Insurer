@@ -19,13 +19,13 @@ public class InsuranceResponse {
     private String orderId;
     @JsonProperty("policy_id")
     private String policyId;
-    @JsonProperty("status")
-    private ResponseStatus status;
+    /*@JsonProperty("status")
+    private ResponseStatus status;*/
     @JsonProperty("message")
     private String message;
 
     // Для расчёта
-    @JsonProperty("calculated_cost")
+    @JsonProperty("premium")
     private BigDecimal calculatedCost;
     @JsonProperty("manufacturer_kbm")
     private BigDecimal manufacturerKbm;
@@ -33,10 +33,18 @@ public class InsuranceResponse {
     private BigDecimal operatorKbm;
 
     // Для полиса
-    @JsonProperty("policy_start_date")
+    @JsonProperty("policy_type")
+    private Policy.PolicyType policyType;
+    @JsonProperty("status")
+    private Policy.PolicyStatus policyStatus;
+    @JsonProperty("drone_id")
+    private String droneId;
+    @JsonProperty("start_date")
     private LocalDateTime policyStartDate;
-    @JsonProperty("policy_end_date")
+    @JsonProperty("end_date")
     private LocalDateTime policyEndDate;
+    @JsonProperty("kfleet_history")
+    private BigDecimal droneKbm;
 
     // Для инцидентов
     @JsonProperty("coverage_amount")
@@ -48,9 +56,9 @@ public class InsuranceResponse {
     @JsonProperty("new_operator_kbm")
     private BigDecimal newOperatorKbm;
 
-    public enum ResponseStatus {
+    /*public enum ResponseStatus {
         SUCCESS,
         FAILED,
         PENDING
-    }
+    }*/
 }

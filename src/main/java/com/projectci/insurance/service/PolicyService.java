@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,7 +21,7 @@ public class PolicyService {
     private final PolicyRepository policyRepository;
     private final InsuranceProperties properties;
 
-    public Policy createPolicy(InsuranceRequest request) {
+    public Policy createPolicy(InsuranceRequest request, Policy.PolicyType type) {
         Policy policy = new Policy();
         policy.setPolicyNumber("POL-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         policy.setOrderId(request.getOrderId());
@@ -28,15 +29,24 @@ public class PolicyService {
         policy.setOperatorId(request.getOperatorId());
         policy.setDroneId(request.getDroneId());
 
-        // Заглушка: полис действует 30 дней
-        policy.setStartDate(LocalDateTime.now());
-        policy.setEndDate(LocalDateTime.now().plusDays(properties.getPolicyDurationDays()));
 
+        switch (type) {
+            case mission:
+                // Заглушка: полис действует 30 дней
+                policy.setStartDate(LocalDateTime.now());
+                policy.setEndDate(LocalDateTime.now().plusDays(properties.getPolicyDurationDays()));
+            case annual:
+                policy.setStartDate(LocalDateTime.now());
+                policy.setEndDate(LocalDateTime.now().plusYears(1L));
+        }
         // Заглушка: стоимость из пропертей
-        policy.setCost(properties.getBaseCost());
+        policy.setCost(request.getCoverageAmount().multiply( new BigDecimal("0.08").multiply(properties.getBaseKbm())));
         policy.setCoverageAmount(properties.getBaseCost().multiply(new java.math.BigDecimal("10"))); // покрытие в 10 раз больше
 
-        policy.setStatus(Policy.PolicyStatus.ACTIVE);
+        policy.setStatus(Policy.PolicyStatus.active);
+        policy.setPolicyType(type);
+
+        policy.setDroneKbm(properties.getBaseKbm());
 
         return policyRepository.save(policy);
     }
@@ -46,7 +56,7 @@ public class PolicyService {
 
         if (policyOpt.isPresent()) {
             Policy policy = policyOpt.get();
-            policy.setStatus(Policy.PolicyStatus.TERMINATED);
+            policy.setStatus(Policy.PolicyStatus.terminated);
             policy.setEndDate(LocalDateTime.now());
             policyRepository.save(policy);
             log.info("Policy {} terminated for order {}", policy.getId(), orderId);
@@ -59,6 +69,6 @@ public class PolicyService {
 
     public Optional<Policy> getActivePolicyForOrder(String orderId) {
         return policyRepository.findByOrderId(orderId)
-                .filter(p -> p.getStatus() == Policy.PolicyStatus.ACTIVE);
+                .filter(p -> p.getStatus() == Policy.PolicyStatus.active);
     }
 }

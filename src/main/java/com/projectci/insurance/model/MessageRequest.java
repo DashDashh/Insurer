@@ -19,9 +19,11 @@ public class MessageRequest {
     @JsonProperty("message_id")
     private String messageId;      // Уникальный ID сообщения
     @JsonProperty("action")
-    private String action;          // Тип действия (из GatewayActions)
+    private insuranceAction action;          // Тип действия (из GatewayActions)
     @JsonProperty("sender")
     private String sender;          // ID отправителя
+    @JsonProperty("reply_to")
+    private String replyTo;
     @JsonProperty("correlation_id")
     private String correlationId;   // Для request-response
     @JsonProperty("timestamp")
@@ -37,8 +39,17 @@ public class MessageRequest {
     @JsonProperty("headers")
     private Map<String, String> headers;
 
+    public enum insuranceAction {
+        annual_insurance,
+        mission_insurance,
+        calculate_policy,
+        purchase_policy,
+        report_incident,
+        terminate_policy
+    }
+
     // Статический метод для создания запроса
-    public static MessageRequest createRequest(String action, String sender, InsuranceRequest payload) {
+    public static MessageRequest createRequest(insuranceAction action, String sender, InsuranceRequest payload) {
         MessageRequest message = new MessageRequest();
         message.setMessageId(UUID.randomUUID().toString());
         message.setAction(action);

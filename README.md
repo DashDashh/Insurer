@@ -34,12 +34,138 @@ COMPOSE_PROFILES=kafka
 
 ### Топики
 - Слушаем: ```systems.insurance_system```
-- Отвечаем в ```systems.<sender_from_request>```
+- Отвечаем в ```reply_to```, если указан. Иначе в ```systems.<sender_from_request>```
 
 ### Запросы
 Request, хранящийся в payload, для любого запроса имеет одинаковую структуру. Поля, не относящиеся к типу запроса остаются null. Тип запроса указывается в поле request_type.
 
 ### ПРИМЕРЫ:
+
+### annual_insurance:
+#### Запрос:
+```json
+{
+  "message_id": "msg-001-2026",
+  "action": "annual_insurance",
+  "sender": "operator",
+  "reply_to": "systems.operator",
+  "correlation_id": "corr-123-2026",
+  "timestamp": 1743552000000,
+  "payload": {
+    "request_id": "req-20260319-001",
+    "order_id": "order-12345",
+    "manufacturer_id": "manuf-001",
+    "operator_id": "oper-001",
+    "drone_id": "drone-789",
+    "security_goals": [
+      "ЦБ1",
+      "ЦБ2"
+    ],
+    "coverage_amount": 150000,
+    "calculation_id": "calc-678-2026",
+    "incident": null,
+    "request_type": "CALCULATION"
+  },
+  "message_type": "request",
+  "headers": {
+    "version": "1.0",
+    "source": "insurance-api"
+  }
+}
+```
+#### Ответ:
+```json
+{
+   "message_id": "e16782d5-a2ad-4e3c-8bd0-f7be716b4d00",
+   "correlation_id": "corr-123-2026",
+   "timestamp": 1776001471125,
+   "payload": {
+      "coverage_amount": 150000,
+      "drone_id": "drone-789",
+      "end_date": "2027-04-12T13:44:31.029306819",
+      "kfleet_history": 1,
+      "manufacturer_kbm": null,
+      "message": "Полис успешно оформлен",
+      "new_manufacturer_kbm": null,
+      "new_operator_kbm": null,
+      "operator_kbm": null,
+      "order_id": "order-12345",
+      "payment_amount": null,
+      "policy_id": "4d18e981-e68c-43ec-9b02-b62245897401",
+      "policy_type": "annual",
+      "premium": 12000,
+      "request_id": "req-20260319-001",
+      "response_id": "eeb81977-2bbe-4bc2-9626-e0601cb7b197",
+      "start_date": "2026-04-12T13:44:31.029275288",
+      "status": "active"
+   },
+   "message_type": "response",
+   "success": true
+}
+```
+
+### mission_insurance:
+#### Запрос:
+```json
+{
+  "message_id": "msg-001-2026",
+  "action": "mission_insurance",
+  "sender": "operator",
+  "reply_to": "systems.operator",
+  "correlation_id": "corr-123-2026",
+  "timestamp": 1743552000000,
+  "payload": {
+    "request_id": "req-20260319-001",
+    "order_id": "order-12345",
+    "manufacturer_id": "manuf-001",
+    "operator_id": "oper-001",
+    "drone_id": "drone-789",
+    "security_goals": [
+      "ЦБ1",
+      "ЦБ2"
+    ],
+    "coverage_amount": 150000,
+    "calculation_id": "calc-678-2026",
+    "incident": null,
+    "request_type": "CALCULATION"
+  },
+  "message_type": "request",
+  "headers": {
+    "version": "1.0",
+    "source": "insurance-api"
+  }
+}
+```
+#### Ответ:
+```json
+{
+   "message_id": "7fef6715-4f48-4e10-b713-e98c51074cc4",
+   "correlation_id": "corr-123-2026",
+   "timestamp": 1776001789436,
+   "payload": {
+      "coverage_amount": 150000,
+      "drone_id": "drone-789",
+      "end_date": "2027-04-12T13:49:49.424257351",
+      "kfleet_history": 1,
+      "manufacturer_kbm": null,
+      "message": "Полис успешно оформлен",
+      "new_manufacturer_kbm": null,
+      "new_operator_kbm": null,
+      "operator_kbm": null,
+      "order_id": "order-12345",
+      "payment_amount": null,
+      "policy_id": "8cb4235b-085c-48f8-958d-7a91879f9da3",
+      "policy_type": "mission",
+      "premium": 12000,
+      "request_id": "req-20260319-001",
+      "response_id": "6eb454e8-944d-4ffe-b2ef-013f103136dc",
+      "start_date": "2026-04-12T13:49:49.424252212",
+      "status": "active"
+   },
+   "message_type": "response",
+   "success": true
+}
+```
 
 ### Проверка стоимости.
 
