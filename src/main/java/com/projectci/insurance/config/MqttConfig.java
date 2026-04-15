@@ -61,7 +61,7 @@ public class MqttConfig {
 
     public String getInsuranceRequestTopicName() {
         //return String.format("v1.%s.%s.%s.requests", "Insurer", instanceId, "insurer-service");
-        return topicConfig.getSystemTopic("insurance_system");
+        return topicConfig.getSystemTopic("insurer");
     }
     @Bean
     public String insuranceRequestTopicName() {

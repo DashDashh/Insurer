@@ -1,12 +1,8 @@
 package com.projectci.insurance.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,6 +19,8 @@ public class Policy {
     @Column(unique = true)
     @JsonProperty("policy_number")
     private String policyNumber;
+    @JsonProperty("policy_type")
+    private PolicyType policyType;
 
     @JsonProperty("order_id")
     private String orderId;
@@ -42,12 +40,20 @@ public class Policy {
     private BigDecimal cost;
     @JsonProperty("coverage_amount")
     private BigDecimal coverageAmount;
+    @JsonProperty("kfleet_history")
+    private BigDecimal droneKbm;
 
     @Enumerated(EnumType.STRING)
     @JsonProperty("status")
     private PolicyStatus status;
 
     public enum PolicyStatus {
-        ACTIVE, TERMINATED, EXPIRED, PAID
+        active,
+        terminated
+    }
+
+    public enum PolicyType {
+        annual,
+        mission
     }
 }

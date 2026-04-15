@@ -1,5 +1,6 @@
 package com.projectci.insurance.service;
 
+import com.projectci.insurance.config.InsuranceProperties;
 import com.projectci.insurance.config.TopicConfig;
 import com.projectci.insurance.model.*;
 import com.projectci.insurance.producer.MessagePublisher;
@@ -51,24 +52,36 @@ public class InsuranceService {
 
     public void processInsuranceRequest(MessageRequest message) {
         log.info("Processing insurance request: {}, from system: {}",
-                message.getPayload().getRequestType(), systemId);
+                message.getAction(), systemId);
 
         InsuranceRequest request = message.getPayload();
         InsuranceResponse response = null;
 
         try {
             // Обработка запроса
-            switch (request.getRequestType()) {
-                case CALCULATION:
+            switch (message.getAction()) {
+                case annual_insurance:
+                    log.info("IN CASE ANNUAL", message.getAction(), systemId);
+                    response = processPurchase(request, Policy.PolicyType.annual);
+                    break;
+                case mission_insurance:
+                    log.info("IN CASE MISSION", message.getAction(), systemId);
+                    response = processPurchase(request, Policy.PolicyType.mission);
+                    break;
+                case calculate_policy:
+                    log.info("IN CASE CALC", message.getAction(), systemId);
                     response = processCalculation(request);
                     break;
-                case PURCHASE:
-                    response = processPurchase(request);
+                case purchase_policy:
+                    log.info("IN CASE PURCHASE", message.getAction(), systemId);
+                    response = processPurchase(request, Policy.PolicyType.annual);
                     break;
-                case INCIDENT:
+                case report_incident:
+                    log.info("IN CASE REPORT", message.getAction(), systemId);
                     response = processIncident(request);
                     break;
-                case POLICY_TERMINATION:
+                case terminate_policy:
+                    log.info("IN CASE TERM", message.getAction(), systemId);
                     response = processPolicyTermination(request);
                     break;
                 default:
@@ -77,8 +90,9 @@ public class InsuranceService {
 
             // Создаем сообщение в правильном формате
             MessageResponse messageOut = MessageResponse.createResponse(
-                    request.getRequestId(), // correlationId
-                    response
+                    message.getCorrelationId(), // correlationId
+                    response,
+                    true
             );
 
             // Определяем топик для ответа (с учетом namespace)
@@ -102,7 +116,8 @@ public class InsuranceService {
             InsuranceResponse errorResponse = createErrorResponse(request, e.getMessage());
             MessageResponse errorMessage = MessageResponse.createResponse(
                     request.getRequestId(),
-                    errorResponse
+                    errorResponse,
+                    false
             );
 
             // Отправляем в dead letters
@@ -120,11 +135,10 @@ public class InsuranceService {
      * Иначе отправляем в системный топик отправителя
      */
     private String determineResponseTopic(MessageRequest message) {
-        // ОПЦИЯ на потом
         // Если в запросе указан топик для ответа
-        /*if (message.getResponseTopic() != null && !message.getResponseTopic().isEmpty()) {
-            return request.getResponseTopic();
-        }*/
+        if (message.getReplyTo() != null && !message.getReplyTo().isEmpty()) {
+            return message.getReplyTo();
+        }
 
         // Если указан отправитель - отправляем в его системный топик
         if (message.getSender() != null && !message.getSender().isEmpty()) {
@@ -143,7 +157,7 @@ public class InsuranceService {
                 .responseId(UUID.randomUUID().toString())
                 .requestId(request.getRequestId())
                 .orderId(request.getOrderId())
-                .status(InsuranceResponse.ResponseStatus.SUCCESS)
+                /*.status(InsuranceResponse.ResponseStatus.SUCCESS)*/
                 .calculatedCost(kbmService.calculatePolicyCost(request))
                 .coverageAmount(request.getCoverageAmount())
                 .manufacturerKbm(kbmService.getManufacturerKbm(request.getManufacturerId()))
@@ -152,16 +166,20 @@ public class InsuranceService {
                 .build();
     }
 
-    private InsuranceResponse processPurchase(InsuranceRequest request) {
+    private InsuranceResponse processPurchase(InsuranceRequest request, Policy.PolicyType type) {
         // ОФ2 - Покупка полиса
-        Policy policy = policyService.createPolicy(request);
+        Policy policy = policyService.createPolicy(request, type);
 
         return InsuranceResponse.builder()
                 .responseId(UUID.randomUUID().toString())
                 .requestId(request.getRequestId())
                 .orderId(request.getOrderId())
                 .policyId(policy.getId())
-                .status(InsuranceResponse.ResponseStatus.SUCCESS)
+                .policyType(type)
+                .policyStatus(policy.getStatus())
+                .droneId(policy.getDroneId())
+                .droneKbm(policy.getDroneKbm())
+                /*.status(InsuranceResponse.ResponseStatus.SUCCESS)*/
                 .policyStartDate(policy.getStartDate())
                 .policyEndDate(policy.getEndDate())
                 .calculatedCost(policy.getCost())
@@ -190,7 +208,7 @@ public class InsuranceService {
                 .responseId(UUID.randomUUID().toString())
                 .requestId(request.getRequestId())
                 .orderId(request.getOrderId())
-                .status(InsuranceResponse.ResponseStatus.SUCCESS)
+                /*.status(InsuranceResponse.ResponseStatus.SUCCESS)*/
                 .coverageAmount(processedIncident.getDamageAmount())
                 .paymentAmount(processedIncident.getDamageAmount()) // Заглушка
                 .newManufacturerKbm(manufacturerKbm.getNewKbm())
@@ -208,7 +226,7 @@ public class InsuranceService {
                     .responseId(UUID.randomUUID().toString())
                     .requestId(request.getRequestId())
                     .orderId(request.getOrderId())
-                    .status(InsuranceResponse.ResponseStatus.SUCCESS)
+                    /*.status(InsuranceResponse.ResponseStatus.SUCCESS)*/
                     .message("Полис успешно прекращён")
                     .build();
         } else {
@@ -221,7 +239,7 @@ public class InsuranceService {
                 .responseId(UUID.randomUUID().toString())
                 .requestId(request != null ? request.getRequestId() : null)
                 .orderId(request != null ? request.getOrderId() : null)
-                .status(InsuranceResponse.ResponseStatus.FAILED)
+                /*.status(InsuranceResponse.ResponseStatus.FAILED)*/
                 .message("Error: " + errorMessage)
                 .build();
     }

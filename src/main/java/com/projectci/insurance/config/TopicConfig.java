@@ -24,7 +24,7 @@ public class TopicConfig {
 
     // Конфигурация для страховой системы
     public static class InsuranceSystem {
-        public static final String SYSTEM_NAME = "insurance_system";
+        public static final String SYSTEM_NAME = "insurer";
 
         // Компоненты
         public static class Components {
