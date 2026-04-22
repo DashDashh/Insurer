@@ -34,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: unit-tests
     timeout-minutes: 20
+    env:
+      COMPOSE_FILE: docker-compose.dev.yml
 
     steps:
       - name: Checkout
@@ -44,4 +46,4 @@ jobs:
 
       - name: Docker cleanup
         if: always()
-        run: docker compose down -v --remove-orphans
+        run: make docker-down
