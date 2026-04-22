@@ -10,24 +10,37 @@
 
 ## Запуск
 ```bash
+# Локальная разработка (dev compose)
+make docker-up COMPOSE_FILE=docker-compose.dev.yml
+make wait-kafka COMPOSE_FILE=docker-compose.dev.yml
+
+# Логи
+make docker-logs COMPOSE_FILE=docker-compose.dev.yml
+
+# Остановка
+make docker-down COMPOSE_FILE=docker-compose.dev.yml
+
+# Продовый compose (требует внешнюю инфраструктуру)
 make docker-up
 
 # Запуск с нужным количеством реплик insurance-service
 make docker-up INSURANCE_REPLICAS=<Количество реплик сервиса>
 ```
 
-## Системные переменные для переключения между брокерами
-В файле .env нужно установить необходимый профиль kafka/mqtt для соответствующего брокера
-Для Mosquitto:
+## Тесты
+```bash
+# Интеграционные тесты (используется отдельный test/dev compose)
+make integration-test
+
+# Все тесты
+make tests
 ```
-MESSAGING_PROFILE=mqtt
-COMPOSE_PROFILES=mqtt
-```
-Для Kafka:
-```
-MESSAGING_PROFILE=kafka
-COMPOSE_PROFILES=kafka
-```
+
+## Переменные окружения
+Для локального запуска через `docker-compose.dev.yml` базовые переменные Kafka уже заданы в compose-файле.
+
+Файл `.env` используется для дополнительных локальных переопределений (например, namespace и других параметров приложения),
+но для CI и интеграционных тестов он не обязателен.
 
 
 ## Форматы сообщений для брокера
