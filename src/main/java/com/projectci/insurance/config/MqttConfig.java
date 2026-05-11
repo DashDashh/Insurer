@@ -32,9 +32,14 @@ public class MqttConfig {
     private final TopicConfig topicConfig;
 
     private String instanceId;
-    @Value("${MQTT_SERVER:tcp://localhost:1883}")
+    @Value("${MQTT_SERVER:tcp://mosquitto:1883}")
     private String mqttUrl;
 
+    @Value("${MQTT_USERNAME:}")
+    private String mqttUsername;
+
+    @Value("${MQTT_PASSWORD:}")
+    private String mqttPassword;
 
     @Bean
     public MqttPahoClientFactory mqttClientFactory() {
@@ -44,6 +49,14 @@ public class MqttConfig {
         options.setAutomaticReconnect(true);
         options.setCleanSession(true);
         options.setConnectionTimeout(10);
+
+        if (mqttUsername != null && !mqttUsername.isEmpty()) {
+            options.setUserName(mqttUsername);
+            if (mqttPassword != null) {
+                options.setPassword(mqttPassword.toCharArray());
+            }
+        }
+
         factory.setConnectionOptions(options);
         return factory;
     }
@@ -96,13 +109,14 @@ public class MqttConfig {
     public MessageProducer inbound(MqttPahoClientFactory factory,
                                    @Qualifier("insuranceRequestTopicName") String topic) {
         MqttPahoMessageDrivenChannelAdapter adapter =
-                new MqttPahoMessageDrivenChannelAdapter("consumer-" + System.getenv("INSTANCE_ID"), factory, topic);
+                new MqttPahoMessageDrivenChannelAdapter("consumer-" + (this.instanceId != null ? this.instanceId : "1"), factory, topic);
 
         DefaultPahoMessageConverter converter = new DefaultPahoMessageConverter();
         converter.setPayloadAsBytes(false); // Сообщение будет приходить как String
 
         adapter.setConverter(converter);
         adapter.setOutputChannel(mqttInputChannel());
+        adapter.setAutoStartup(true);
         return adapter;
     }
 
