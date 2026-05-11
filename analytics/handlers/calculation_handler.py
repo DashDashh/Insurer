@@ -1,27 +1,28 @@
-from services.calculation_service import InsuranceCalculatorService
-from risk.basic_risk_strategy import BasicRiskStrategy
 from domain.models import CalculationRequest
 
 
 class CalculationHandler:
 
-    def __init__(self):
-        self.calculator = InsuranceCalculatorService(
-            BasicRiskStrategy()
-        )
+    def __init__(self, calculator_service):
+        self.calculator_service = calculator_service
 
-    def handle(self, payload: dict) -> dict:
+    def handle(self, payload):
+
         request = CalculationRequest(
             manufacturer_kbm=payload["manufacturer_kbm"],
             operator_kbm=payload["operator_kbm"],
             security_goals=payload["security_goals"],
-            required_goals=payload.get("required_goals", []),
+            required_goals=payload["required_goals"],
             coverage_amount=payload["coverage_amount"]
         )
 
-        result = self.calculator.calculate(request)
+        result = self.calculator_service.calculate(request)
 
         return {
-            "calculated_cost": result.calculated_cost,
-            "risk_score": result.risk_score
+            "status": "SUCCESS",
+            "action": "CALCULATION_RESULT",
+            "payload": {
+                "calculated_cost": result.calculated_cost,
+                "risk_score": result.risk_score
+            }
         }

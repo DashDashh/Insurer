@@ -5,7 +5,7 @@ from messaging.mqtt_client import MQTTClient
 
 from handlers.calculation_handler import CalculationHandler
 from handlers.incident_handler import IncidentHandler
-from handlers.kbm_update_handler import KBMUpdateHandler
+from handlers.kbm_handler import KbmHandler
 
 from config import Config
 from utils.logger import get_logger
@@ -19,7 +19,7 @@ class MessagingRunner:
         self.router = MessageRouter({
             "CALCULATION": CalculationHandler(calculator_service),
             "INCIDENT": IncidentHandler(),
-            "KBM_UPDATE": KBMUpdateHandler()
+            "KBM_UPDATE": KbmHandler()
         })
 
     def start(self):

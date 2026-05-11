@@ -1,28 +1,27 @@
-from handlers.calculation_handler import CalculationHandler
-from handlers.incident_handler import IncidentHandler
-from handlers.kbm_handler import KbmHandler
-from domain.enums import ActionType
+from utils.logger import get_logger
+
+logger = get_logger("Router")
 
 
 class MessageRouter:
 
-    def __init__(self):
-        self.calculation_handler = CalculationHandler()
-        self.incident_handler = IncidentHandler()
-        self.kbm_handler = KbmHandler()
+    def __init__(self, handlers):
+        self.handlers = handlers
 
-    def route(self, message: dict) -> dict:
+    def route(self, message):
+
         action = message.get("action")
+
+        if not action:
+            raise Exception("Missing action")
+
+        handler = self.handlers.get(action)
+
+        if not handler:
+            raise Exception(f"No handler for action: {action}")
+
         payload = message.get("payload", {})
 
-        if action == ActionType.CALCULATION:
-            return self.calculation_handler.handle(payload)
+        logger.info(f"Routing action: {action}")
 
-        elif action == ActionType.INCIDENT:
-            return self.incident_handler.handle(payload)
-
-        elif action == ActionType.KBM_UPDATE:
-            return self.kbm_handler.handle(payload)
-
-        else:
-            raise ValueError(f"Unknown action: {action}")
+        return handler.handle(payload)
