@@ -31,6 +31,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     depends_on:
       - zookeeper
 
@@ -51,7 +52,11 @@ services:
   analytics-service:
     build: .
     container_name: analytics-service
+    networks:
+      - kafka-net
     environment:
-      - MESSAGING_PROFILE=kafka
+      MESSAGING_PROFILE: kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     depends_on:
-      - "kafka"
+      - kafka
+    restart: on-failure

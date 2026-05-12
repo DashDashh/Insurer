@@ -6,7 +6,7 @@ class Config:
     MESSAGING_PROFILE = os.getenv("MESSAGING_PROFILE", "kafka")  # kafka | mqtt
 
     # kafka
-    KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092")
+    KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
     KAFKA_GROUP_ID = "insurance-analytics-v2"
 
     # mqtt
