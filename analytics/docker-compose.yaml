@@ -35,6 +35,26 @@ services:
     depends_on:
       - zookeeper
 
+  kafka-init:
+    image: obsidiandynamics/kafka
+    container_name: kafka-init
+    profiles: [ "kafka" ]
+    networks:
+      - kafka-net
+    depends_on:
+      - kafka
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Waiting for Kafka to be ready...';
+        sleep 10;
+        echo 'Creating topics...';
+        /opt/kafka_2.12-2.3.0/bin/kafka-topics.sh --create --topic component.agregator_analytics --zookeeper zookeeper:2181 --partitions 1 --replication-factor 1 --if-not-exists;
+        /opt/kafka_2.12-2.3.0/bin/kafka-topics.sh --create --topic systems.test-client --zookeeper zookeeper:2181 --partitions 1 --replication-factor 1 --if-not-exists;
+        echo 'Topics created successfully';
+        exit 0
+      "
+    restart: "no"
+
   kafdrop:
     image: obsidiandynamics/kafdrop
     container_name: kafdrop
@@ -58,5 +78,5 @@ services:
       MESSAGING_PROFILE: kafka
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     depends_on:
-      - kafka
+      - kafka-init
     restart: on-failure
