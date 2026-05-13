@@ -2,6 +2,8 @@ import os
 
 
 class Config:
+    SERVICE_NAME = "analytics"
+
     # broker
     MESSAGING_PROFILE = os.getenv("MESSAGING_PROFILE", "kafka")  # kafka | mqtt
 
@@ -14,7 +16,7 @@ class Config:
     MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 
     # topics
-    REQUEST_TOPIC = "component.agregator_analytics"
+    REQUEST_TOPIC = "component.insurer_analytics"
 
     # business config
     BASE_RATE = float(os.getenv("BASE_RATE", 1000))

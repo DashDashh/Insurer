@@ -50,6 +50,8 @@ class MessagingRunner:
             try:
                 response = self.router.route(message)
 
+                response["sender"] = Config.SERVICE_NAME
+
                 sender = message.get("sender", "unknown")
                 target_topic = f"systems.{sender}"
 
