@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Data
 public class InsuranceProperties {
     // Заглушки для расчётов
-    private BigDecimal baseCost = new BigDecimal("1000");
+    private BigDecimal baseCost = new BigDecimal("150000");
     private Integer policyDurationDays = 30;
     private BigDecimal baseKbm = new BigDecimal("1.0");
 }

@@ -25,7 +25,7 @@ func TestCalculationRequest(t *testing.T) {
 	requestID := uniqueID("req-calc")
 	orderID := uniqueID("order-calc")
 
-	request := map[string]any{
+	payload := map[string]any{
 		"request_id":      requestID,
 		"order_id":        orderID,
 		"manufacturer_id": uniqueID("manufacturer"),
@@ -35,16 +35,16 @@ func TestCalculationRequest(t *testing.T) {
 		"coverage_amount": defaultCoverageAmount,
 		"calculation_id":  uniqueID("calc"),
 		"incident":        nil,
-		"request_type":    "CALCULATION",
 	}
+
+	request := newMessageRequest("calculate_policy", payload, fx.responseTopic)
 
 	response := fx.sendAndReadResponse(t, request)
 
 	assertEqualStringField(t, response, "request_id", requestID)
 	assertEqualStringField(t, response, "order_id", orderID)
-	assertEqualStringField(t, response, "status", "SUCCESS")
 	assertNonEmptyStringField(t, response, "response_id")
-	assertPositiveNumberField(t, response, "calculated_cost")
+	assertPositiveNumberField(t, response, "premium")
 	assertPositiveNumberField(t, response, "manufacturer_kbm")
 	assertPositiveNumberField(t, response, "operator_kbm")
 }
@@ -54,7 +54,7 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 	orderID := uniqueID("order-purchase")
 
 	purchaseRequestID := uniqueID("req-purchase")
-	purchaseRequest := map[string]any{
+	purchasePayload := map[string]any{
 		"request_id":      purchaseRequestID,
 		"order_id":        orderID,
 		"manufacturer_id": uniqueID("manufacturer"),
@@ -64,19 +64,20 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 		"coverage_amount": defaultCoverageAmount,
 		"calculation_id":  uniqueID("calc-purchase"),
 		"incident":        nil,
-		"request_type":    "PURCHASE",
 	}
+
+	purchaseRequest := newMessageRequest("purchase_policy", purchasePayload, fx.responseTopic)
 
 	purchaseResponse := fx.sendAndReadResponse(t, purchaseRequest)
 
 	assertEqualStringField(t, purchaseResponse, "request_id", purchaseRequestID)
 	assertEqualStringField(t, purchaseResponse, "order_id", orderID)
-	assertEqualStringField(t, purchaseResponse, "status", "SUCCESS")
+	assertEqualStringField(t, purchaseResponse, "status", "active")
 	assertNonEmptyStringField(t, purchaseResponse, "policy_id")
-	assertPositiveNumberField(t, purchaseResponse, "calculated_cost")
+	assertPositiveNumberField(t, purchaseResponse, "premium")
 
 	terminationRequestID := uniqueID("req-termination")
-	terminationRequest := map[string]any{
+	terminationPayload := map[string]any{
 		"request_id":      terminationRequestID,
 		"order_id":        orderID,
 		"manufacturer_id": uniqueID("manufacturer"),
@@ -86,14 +87,18 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 		"coverage_amount": defaultCoverageAmount,
 		"calculation_id":  nil,
 		"incident":        nil,
-		"request_type":    "POLICY_TERMINATION",
 	}
+
+	terminationRequest := newMessageRequest("terminate_policy", terminationPayload, fx.responseTopic)
 
 	terminationResponse := fx.sendAndReadResponse(t, terminationRequest)
 
 	assertEqualStringField(t, terminationResponse, "request_id", terminationRequestID)
 	assertEqualStringField(t, terminationResponse, "order_id", orderID)
-	assertEqualStringField(t, terminationResponse, "status", "SUCCESS")
+	message := getStringField(t, terminationResponse, "message")
+	if !strings.Contains(message, "успешно прекращ") {
+		t.Fatalf("unexpected termination message: %q", message)
+	}
 }
 
 func TestIncidentRequestSuccess(t *testing.T) {
@@ -101,7 +106,7 @@ func TestIncidentRequestSuccess(t *testing.T) {
 	requestID := uniqueID("req-incident")
 	orderID := uniqueID("order-incident")
 
-	request := map[string]any{
+	payload := map[string]any{
 		"request_id":      requestID,
 		"order_id":        orderID,
 		"manufacturer_id": uniqueID("manufacturer"),
@@ -110,7 +115,6 @@ func TestIncidentRequestSuccess(t *testing.T) {
 		"security_goals":  []string{"ЦБ1", "ЦБ2"},
 		"coverage_amount": defaultCoverageAmount,
 		"calculation_id":  nil,
-		"request_type":    "INCIDENT",
 		"incident": map[string]any{
 			"incident_id":   uniqueID("incident"),
 			"order_id":      orderID,
@@ -121,11 +125,12 @@ func TestIncidentRequestSuccess(t *testing.T) {
 		},
 	}
 
+	request := newMessageRequest("report_incident", payload, fx.responseTopic)
+
 	response := fx.sendAndReadResponse(t, request)
 
 	assertEqualStringField(t, response, "request_id", requestID)
 	assertEqualStringField(t, response, "order_id", orderID)
-	assertEqualStringField(t, response, "status", "SUCCESS")
 	assertPositiveNumberField(t, response, "coverage_amount")
 	assertPositiveNumberField(t, response, "payment_amount")
 	assertPositiveNumberField(t, response, "new_manufacturer_kbm")
@@ -136,7 +141,7 @@ func TestIncidentValidationError(t *testing.T) {
 	fx := newKafkaFixture(t)
 	requestID := uniqueID("req-incident-error")
 
-	request := map[string]any{
+	payload := map[string]any{
 		"request_id":      requestID,
 		"order_id":        uniqueID("order-incident-error"),
 		"manufacturer_id": uniqueID("manufacturer"),
@@ -145,14 +150,14 @@ func TestIncidentValidationError(t *testing.T) {
 		"security_goals":  []string{"ЦБ1", "ЦБ2"},
 		"coverage_amount": defaultCoverageAmount,
 		"calculation_id":  nil,
-		"request_type":    "INCIDENT",
 		"incident":        nil,
 	}
+
+	request := newMessageRequest("report_incident", payload, fx.responseTopic)
 
 	response := fx.sendAndReadResponse(t, request)
 
 	assertEqualStringField(t, response, "request_id", requestID)
-	assertEqualStringField(t, response, "status", "FAILED")
 
 	message := getStringField(t, response, "message")
 	if !strings.Contains(message, "Incident data is missing") {
@@ -164,7 +169,7 @@ func TestTerminationForUnknownOrder(t *testing.T) {
 	fx := newKafkaFixture(t)
 	requestID := uniqueID("req-termination-missing")
 
-	request := map[string]any{
+	payload := map[string]any{
 		"request_id":      requestID,
 		"order_id":        uniqueID("missing-order"),
 		"manufacturer_id": uniqueID("manufacturer"),
@@ -174,13 +179,34 @@ func TestTerminationForUnknownOrder(t *testing.T) {
 		"coverage_amount": defaultCoverageAmount,
 		"calculation_id":  nil,
 		"incident":        nil,
-		"request_type":    "POLICY_TERMINATION",
 	}
+
+	request := newMessageRequest("terminate_policy", payload, fx.responseTopic)
 
 	response := fx.sendAndReadResponse(t, request)
 
 	assertEqualStringField(t, response, "request_id", requestID)
-	assertEqualStringField(t, response, "status", "FAILED")
+	message := getStringField(t, response, "message")
+	if !strings.Contains(message, "Policy not found") {
+		t.Fatalf("unexpected error message: %q", message)
+	}
+}
+
+func newMessageRequest(action string, payload map[string]any, replyTo string) map[string]any {
+	return map[string]any{
+		"message_id":     uniqueID("msg"),
+		"action":         action,
+		"sender":         "tests",
+		"reply_to":       replyTo,
+		"correlation_id": getStringFieldNoFail(payload, "request_id"),
+		"timestamp":      time.Now().UnixMilli(),
+		"payload":        payload,
+		"message_type":   "request",
+		"headers": map[string]string{
+			"version": "1.0",
+			"source":  "insurance-integration-tests",
+		},
+	}
 }
 
 type kafkaFixture struct {
@@ -196,6 +222,7 @@ func newKafkaFixture(t *testing.T) kafkaFixture {
 	requestTopic, responseTopic := resolveTopics()
 
 	waitForKafkaReady(t, brokers)
+	waitForTopicReady(t, brokers, requestTopic)
 
 	return kafkaFixture{
 		brokers:       brokers,
@@ -207,7 +234,8 @@ func newKafkaFixture(t *testing.T) kafkaFixture {
 func (f kafkaFixture) sendAndReadResponse(t *testing.T, request map[string]any) map[string]any {
 	t.Helper()
 
-	requestID := getStringField(t, request, "request_id")
+	requestPayload := getMapField(t, request, "payload")
+	requestID := getStringField(t, requestPayload, "request_id")
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:     f.brokers,
@@ -260,16 +288,21 @@ func (f kafkaFixture) sendAndReadResponse(t *testing.T, request map[string]any) 
 			t.Fatalf("failed to read kafka response from topic %q: %v", f.responseTopic, err)
 		}
 
-		var response map[string]any
-		if err := json.Unmarshal(msg.Value, &response); err != nil {
+		var responseEnvelope map[string]any
+		if err := json.Unmarshal(msg.Value, &responseEnvelope); err != nil {
 			continue
 		}
 
-		if getStringFieldNoFail(response, "request_id") != requestID {
+		responsePayload, ok := getMapFieldNoFail(responseEnvelope, "payload")
+		if !ok {
 			continue
 		}
 
-		return response
+		if getStringFieldNoFail(responsePayload, "request_id") != requestID {
+			continue
+		}
+
+		return responsePayload
 	}
 }
 
@@ -303,22 +336,33 @@ func resolveTopics() (requestTopic string, responseTopic string) {
 		return requestTopic, responseTopic
 	}
 
-	instanceID := strings.TrimSpace(os.Getenv("INSURER_INSTANCE_ID"))
-	if instanceID == "" {
-		instanceID = strings.TrimSpace(os.Getenv("INSTANCE_ID"))
-	}
-	if instanceID == "" {
-		instanceID = "1"
-	}
-
 	if requestTopic == "" {
-		requestTopic = fmt.Sprintf("v1.%s.%s.%s.requests", "Insurer", instanceID, "insurer-service")
+		requestTopic = "systems.insurer"
 	}
 	if responseTopic == "" {
-		responseTopic = fmt.Sprintf("v1.%s.%s.%s.responses", "Insurer", instanceID, "insurer-service")
+		responseTopic = "systems.tests"
 	}
 
 	return requestTopic, responseTopic
+}
+
+func waitForTopicReady(t *testing.T, brokers []string, topic string) {
+	t.Helper()
+
+	deadline := time.Now().Add(90 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, broker := range brokers {
+			conn, err := kafka.DialLeader(context.Background(), "tcp", broker, topic, 0)
+			if err != nil {
+				continue
+			}
+			_ = conn.Close()
+			return
+		}
+		time.Sleep(time.Second)
+	}
+
+	t.Fatalf("topic %q is not ready, checked brokers: %v", topic, brokers)
 }
 
 func waitForKafkaReady(t *testing.T, brokers []string) {
@@ -392,6 +436,34 @@ func getStringFieldNoFail(payload map[string]any, field string) string {
 		return ""
 	}
 	return asString
+}
+
+func getMapField(t *testing.T, payload map[string]any, field string) map[string]any {
+	t.Helper()
+
+	value, ok := payload[field]
+	if !ok {
+		t.Fatalf("response is missing field %q", field)
+	}
+
+	asMap, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("field %q is not an object: %#v", field, value)
+	}
+
+	return asMap
+}
+
+func getMapFieldNoFail(payload map[string]any, field string) (map[string]any, bool) {
+	value, ok := payload[field]
+	if !ok {
+		return nil, false
+	}
+	asMap, ok := value.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	return asMap, true
 }
 
 func getNumberField(t *testing.T, payload map[string]any, field string) float64 {

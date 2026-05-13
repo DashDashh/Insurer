@@ -47,7 +47,7 @@ public class InsuranceRequest {
     private Incident incident;
 
     // Тип запроса: CALCULATION, PURCHASE, INCIDENT, POLICY_TERMINATION
-    @JsonProperty("request_type")
+    /*@JsonProperty("request_type")
     private RequestType requestType;
 
     public enum RequestType {
@@ -55,5 +55,5 @@ public class InsuranceRequest {
         PURCHASE,       // ОФ2
         INCIDENT,       // ОФ4
         POLICY_TERMINATION // ОФ3
-    }
+    }*/
 }

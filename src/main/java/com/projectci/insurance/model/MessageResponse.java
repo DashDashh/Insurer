@@ -36,15 +36,18 @@ public class MessageResponse {
     private String messageType;     // "request", "response", "event"
     @JsonProperty("headers")
     private Map<String, String> headers;
+    @JsonProperty("success")
+    boolean success;
 
     // Статический метод для создания ответа
-    public static MessageResponse createResponse(String correlationId, InsuranceResponse payload) {
+    public static MessageResponse createResponse(String correlationId, InsuranceResponse payload, boolean success) {
         MessageResponse message = new MessageResponse();
         message.setMessageId(UUID.randomUUID().toString());
         message.setCorrelationId(correlationId);
         message.setPayload(payload);
         message.setTimestamp(System.currentTimeMillis());
         message.setMessageType("response");
+        message.setSuccess(success);
         return message;
     }
 }
