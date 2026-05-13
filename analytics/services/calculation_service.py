@@ -8,6 +8,9 @@ class InsuranceCalculatorService:
         self.risk_strategy = risk_strategy
         self.base_rate = 1000
 
+    def _coverage_factor(self, coverage: float) -> float:
+        return 1 + coverage / 10_000_000
+
     def calculate(self, request: CalculationRequest) -> CalculationResult:
         risk = self.risk_strategy.calculate(request)
 

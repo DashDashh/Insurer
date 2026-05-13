@@ -19,7 +19,7 @@ class IncidentService:
             return IncidentResult(
                 payment_amount=0,
                 is_fraud=True,
-                message="Подозрение на мошенничество, выплата отклонена"
+                message="Suspected fraud, payment rejected"
             )
 
         # 2. Расчёт выплаты
@@ -31,5 +31,5 @@ class IncidentService:
         return IncidentResult(
             payment_amount=payment,
             is_fraud=False,
-            message="Инцидент обработан, произведена выплата"
+            message="The incident has been processed and a payment has been made"
         )
