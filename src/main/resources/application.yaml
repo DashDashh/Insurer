@@ -3,7 +3,7 @@ spring:
     name: insurance-microservice
 
   profiles:
-    active: "mqtt"
+    active: "kafka"
 
   logging:
     level:
