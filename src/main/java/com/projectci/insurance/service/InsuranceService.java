@@ -1,18 +1,16 @@
 package com.projectci.insurance.service;
 
-import com.projectci.insurance.config.InsuranceProperties;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectci.insurance.config.TopicConfig;
 import com.projectci.insurance.model.*;
 import com.projectci.insurance.producer.MessagePublisher;
 import com.projectci.insurance.utils.NamespaceUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.JsonNode;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -27,6 +25,7 @@ public class InsuranceService {
     private final TopicConfig topicConfig;
     private final NamespaceUtils namespaceUtils;
     private final String systemId;
+    private final ObjectMapper objectMapper;
 
     public InsuranceService(
             MessagePublisher messagePublisher,
@@ -35,6 +34,7 @@ public class InsuranceService {
             KbmService kbmService,
             TopicConfig topicConfig,
             NamespaceUtils namespaceUtils,
+            ObjectMapper objectMapper,
             @Value("${spring.application.name:insurance-service}") String applicationName) {
 
         this.messagePublisher = messagePublisher;
@@ -43,6 +43,7 @@ public class InsuranceService {
         this.kbmService = kbmService;
         this.topicConfig = topicConfig;
         this.namespaceUtils = namespaceUtils;
+        this.objectMapper = objectMapper;
 
         // Формируем уникальный ID отправителя с учетом namespace
         this.systemId = namespaceUtils.hasNamespace()
@@ -54,40 +55,45 @@ public class InsuranceService {
         log.info("Processing insurance request: {}, from system: {}",
                 message.getAction(), systemId);
 
-        InsuranceRequest request = message.getPayload();
+        Object payload = message.getPayload();
         InsuranceResponse response = null;
 
         try {
             // Обработка запроса
-            switch (message.getAction()) {
-                case annual_insurance:
-                    log.info("IN CASE ANNUAL", message.getAction(), systemId);
-                    response = processPurchase(request, Policy.PolicyType.annual);
-                    break;
-                case mission_insurance:
-                    log.info("IN CASE MISSION", message.getAction(), systemId);
-                    response = processPurchase(request, Policy.PolicyType.mission);
-                    break;
-                case calculate_policy:
-                    log.info("IN CASE CALC", message.getAction(), systemId);
-                    response = processCalculation(request);
-                    break;
-                case purchase_policy:
-                    log.info("IN CASE PURCHASE", message.getAction(), systemId);
-                    response = processPurchase(request, Policy.PolicyType.annual);
-                    break;
-                case report_incident:
-                    log.info("IN CASE REPORT", message.getAction(), systemId);
-                    response = processIncident(request);
-                    break;
-                case terminate_policy:
-                    log.info("IN CASE TERM", message.getAction(), systemId);
-                    response = processPolicyTermination(request);
-                    break;
-                default:
-                    response = createErrorResponse(request, "Unknown request type");
+            if (message.getSender().equals("analytics")) {
+                log.info("PROCESS MSG FROM ANALYTICS");
             }
-
+            else {
+                InsuranceRequest request = convertPayload(payload, InsuranceRequest.class);
+                switch (message.getAction()) {
+                    case annual_insurance:
+                        log.info("IN CASE ANNUAL", message.getAction(), systemId);
+                        response = processPurchase(request, Policy.PolicyType.annual);
+                        break;
+                    case mission_insurance:
+                        log.info("IN CASE MISSION", message.getAction(), systemId);
+                        response = processPurchase(request, Policy.PolicyType.mission);
+                        break;
+                    case calculate_policy:
+                        log.info("IN CASE CALC", message.getAction(), systemId);
+                        response = processCalculation(request);
+                        break;
+                    case purchase_policy:
+                        log.info("IN CASE PURCHASE", message.getAction(), systemId);
+                        response = processPurchase(request, Policy.PolicyType.annual);
+                        break;
+                    case report_incident:
+                        log.info("IN CASE REPORT", message.getAction(), systemId);
+                        response = processIncident(request);
+                        break;
+                    case terminate_policy:
+                        log.info("IN CASE TERM", message.getAction(), systemId);
+                        response = processPolicyTermination(request);
+                        break;
+                    default:
+                        response = createErrorResponse(request, "Unknown request type");
+                }
+            }
             // Создаем сообщение в правильном формате
             MessageResponse messageOut = MessageResponse.createResponse(
                     message.getCorrelationId(), // correlationId
@@ -102,7 +108,7 @@ public class InsuranceService {
             // Отправка ответа
             messagePublisher.send(
                     responseTopic,
-                    response.getOrderId(),
+                    response != null ? response.getOrderId() : null,
                     messageOut
             );
 
@@ -110,23 +116,28 @@ public class InsuranceService {
                     responseTopic, messageOut.getCorrelationId());
 
         } catch (Exception e) {
-            log.error("Error processing request: {}", request, e);
+            log.error("Error processing request: {}", payload, e);
 
             // Создаем сообщение об ошибке
-            InsuranceResponse errorResponse = createErrorResponse(request, e.getMessage());
+            /*InsuranceResponse errorResponse = createErrorResponse(payload, e.getMessage());
             MessageResponse errorMessage = MessageResponse.createResponse(
-                    request.getRequestId(),
+                    payload.getRequestId(),
                     errorResponse,
                     false
-            );
+            );*/
 
             // Отправляем в dead letters
             messagePublisher.send(
                     TopicConfig.DEAD_LETTERS_TOPIC,
-                    errorResponse.getOrderId(),
-                    errorMessage
+                    null,
+                    message
             );
         }
+    }
+
+    private <T> T convertPayload(Object payload, Class<T> targetClass) {
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.convertValue(payload, targetClass);
     }
 
     /**

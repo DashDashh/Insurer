@@ -126,6 +126,7 @@ public class KafkaConfig {
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
         config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.projectci.insurance.model");
         config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, "com.projectci.insurance.model.MessageRequest");
+        config.put(JacksonJsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
         applySasl(config);
         return new DefaultKafkaConsumerFactory<>(config);
     }
