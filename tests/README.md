@@ -1,7 +1,7 @@
 # Интеграционные тесты страховщика
 
 В этой папке находятся интеграционные тесты сервиса страховой компании.
-Тесты проверяют Kafka-пайплайн: отправка запроса в request topic и получение ответа из response topic.
+Тесты работают с Kafka или MQTT: отправляют запрос в request topic и получают ответ из response topic.
 
 Основной файл с тестами: insurance_integration_test.go.
 
@@ -22,8 +22,7 @@ make integration-test
 ```
 
 Эта команда:
-- поднимает zookeeper, kafka, kafdrop и insurance-service;
-- ждет доступности Kafka;
+- поднимает нужный брокер и insurance-service;
 - запускает go test внутри контейнера tests;
 - после завершения останавливает окружение.
 
@@ -51,19 +50,20 @@ make docker-down
 
 Тесты можно гибко настроить через env:
 
+- BROKER_TYPE: kafka или mqtt, выбирает профиль запуска.
 - KAFKA_BROKERS: список брокеров через запятую.
 	Пример: kafka:29092,localhost:9092
+- MQTT_SERVER: адрес MQTT брокера.
+	Пример: tcp://mosquitto:1883
+- MQTT_USERNAME: логин для MQTT (опционально).
+- MQTT_PASSWORD: пароль для MQTT (опционально).
 - INSURANCE_REQUEST_TOPIC: явное имя request topic.
 - INSURANCE_RESPONSE_TOPIC: явное имя response topic.
-- INSURER_INSTANCE_ID: instance id для вычисления имен топиков.
-- INSTANCE_ID: fallback для instance id.
 
-Если топики не заданы явно, используются шаблоны:
+Если топики не заданы явно, используются дефолты:
 
-- v1.Insurer.<instanceId>.insurer-service.requests
-- v1.Insurer.<instanceId>.insurer-service.responses
-
-По умолчанию instanceId = 1.
+- systems.insurer
+- systems.tests
 
 ## Локальный запуск из папки tests
 

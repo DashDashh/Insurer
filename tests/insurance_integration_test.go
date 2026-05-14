@@ -11,17 +11,20 @@ import (
 	"testing"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/segmentio/kafka-go"
 )
 
 const (
 	defaultKafkaReadTimeout = 45 * time.Second
+	defaultMqttReadTimeout  = 45 * time.Second
 	defaultDialTimeout      = 2 * time.Second
+	defaultPublishTimeout   = 10 * time.Second
 	defaultCoverageAmount   = 5000000.00
 )
 
 func TestCalculationRequest(t *testing.T) {
-	fx := newKafkaFixture(t)
+	fx := newFixture(t)
 	requestID := uniqueID("req-calc")
 	orderID := uniqueID("order-calc")
 
@@ -37,7 +40,7 @@ func TestCalculationRequest(t *testing.T) {
 		"incident":        nil,
 	}
 
-	request := newMessageRequest("calculate_policy", payload, fx.responseTopic)
+	request := newMessageRequest("calculate_policy", payload, fx.responseTopic())
 
 	response := fx.sendAndReadResponse(t, request)
 
@@ -50,7 +53,7 @@ func TestCalculationRequest(t *testing.T) {
 }
 
 func TestPurchaseAndTerminationLifecycle(t *testing.T) {
-	fx := newKafkaFixture(t)
+	fx := newFixture(t)
 	orderID := uniqueID("order-purchase")
 
 	purchaseRequestID := uniqueID("req-purchase")
@@ -66,7 +69,7 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 		"incident":        nil,
 	}
 
-	purchaseRequest := newMessageRequest("purchase_policy", purchasePayload, fx.responseTopic)
+	purchaseRequest := newMessageRequest("purchase_policy", purchasePayload, fx.responseTopic())
 
 	purchaseResponse := fx.sendAndReadResponse(t, purchaseRequest)
 
@@ -89,7 +92,7 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 		"incident":        nil,
 	}
 
-	terminationRequest := newMessageRequest("terminate_policy", terminationPayload, fx.responseTopic)
+	terminationRequest := newMessageRequest("terminate_policy", terminationPayload, fx.responseTopic())
 
 	terminationResponse := fx.sendAndReadResponse(t, terminationRequest)
 
@@ -102,7 +105,7 @@ func TestPurchaseAndTerminationLifecycle(t *testing.T) {
 }
 
 func TestIncidentRequestSuccess(t *testing.T) {
-	fx := newKafkaFixture(t)
+	fx := newFixture(t)
 	requestID := uniqueID("req-incident")
 	orderID := uniqueID("order-incident")
 
@@ -125,7 +128,7 @@ func TestIncidentRequestSuccess(t *testing.T) {
 		},
 	}
 
-	request := newMessageRequest("report_incident", payload, fx.responseTopic)
+	request := newMessageRequest("report_incident", payload, fx.responseTopic())
 
 	response := fx.sendAndReadResponse(t, request)
 
@@ -138,7 +141,7 @@ func TestIncidentRequestSuccess(t *testing.T) {
 }
 
 func TestIncidentValidationError(t *testing.T) {
-	fx := newKafkaFixture(t)
+	fx := newFixture(t)
 	requestID := uniqueID("req-incident-error")
 
 	payload := map[string]any{
@@ -153,7 +156,7 @@ func TestIncidentValidationError(t *testing.T) {
 		"incident":        nil,
 	}
 
-	request := newMessageRequest("report_incident", payload, fx.responseTopic)
+	request := newMessageRequest("report_incident", payload, fx.responseTopic())
 
 	response := fx.sendAndReadResponse(t, request)
 
@@ -166,7 +169,7 @@ func TestIncidentValidationError(t *testing.T) {
 }
 
 func TestTerminationForUnknownOrder(t *testing.T) {
-	fx := newKafkaFixture(t)
+	fx := newFixture(t)
 	requestID := uniqueID("req-termination-missing")
 
 	payload := map[string]any{
@@ -181,7 +184,7 @@ func TestTerminationForUnknownOrder(t *testing.T) {
 		"incident":        nil,
 	}
 
-	request := newMessageRequest("terminate_policy", payload, fx.responseTopic)
+	request := newMessageRequest("terminate_policy", payload, fx.responseTopic())
 
 	response := fx.sendAndReadResponse(t, request)
 
@@ -210,9 +213,28 @@ func newMessageRequest(action string, payload map[string]any, replyTo string) ma
 }
 
 type kafkaFixture struct {
-	brokers       []string
-	requestTopic  string
-	responseTopic string
+	brokers           []string
+	requestTopic      string
+	responseTopicName string
+}
+
+type fixture interface {
+	responseTopic() string
+	sendAndReadResponse(t *testing.T, request map[string]any) map[string]any
+}
+
+func newFixture(t *testing.T) fixture {
+	t.Helper()
+
+	switch resolveBrokerType() {
+	case "mqtt":
+		return newMqttFixture(t)
+	case "", "kafka":
+		return newKafkaFixture(t)
+	default:
+		t.Fatalf("unsupported broker type, expected kafka or mqtt")
+		return nil
+	}
 }
 
 func newKafkaFixture(t *testing.T) kafkaFixture {
@@ -225,10 +247,14 @@ func newKafkaFixture(t *testing.T) kafkaFixture {
 	waitForTopicReady(t, brokers, requestTopic)
 
 	return kafkaFixture{
-		brokers:       brokers,
-		requestTopic:  requestTopic,
-		responseTopic: responseTopic,
+		brokers:           brokers,
+		requestTopic:      requestTopic,
+		responseTopicName: responseTopic,
 	}
+}
+
+func (f kafkaFixture) responseTopic() string {
+	return f.responseTopicName
 }
 
 func (f kafkaFixture) sendAndReadResponse(t *testing.T, request map[string]any) map[string]any {
@@ -239,7 +265,7 @@ func (f kafkaFixture) sendAndReadResponse(t *testing.T, request map[string]any) 
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:     f.brokers,
-		Topic:       f.responseTopic,
+		Topic:       f.responseTopicName,
 		GroupID:     uniqueID("tests-response-reader"),
 		MinBytes:    1,
 		MaxBytes:    10e6,
@@ -285,7 +311,7 @@ func (f kafkaFixture) sendAndReadResponse(t *testing.T, request map[string]any) 
 	for {
 		msg, err := reader.ReadMessage(readCtx)
 		if err != nil {
-			t.Fatalf("failed to read kafka response from topic %q: %v", f.responseTopic, err)
+			t.Fatalf("failed to read kafka response from topic %q: %v", f.responseTopicName, err)
 		}
 
 		var responseEnvelope map[string]any
@@ -324,6 +350,129 @@ func resolveKafkaBrokers() []string {
 	return []string{"kafka:29092", "localhost:9092"}
 }
 
+type mqttFixture struct {
+	brokerURL         string
+	username          string
+	password          string
+	requestTopic      string
+	responseTopicName string
+}
+
+func newMqttFixture(t *testing.T) mqttFixture {
+	t.Helper()
+
+	brokerURL, username, password := resolveMqttConfig()
+	requestTopic, responseTopic := resolveTopics()
+
+	waitForMqttReady(t, brokerURL, username, password)
+
+	return mqttFixture{
+		brokerURL:         brokerURL,
+		username:          username,
+		password:          password,
+		requestTopic:      requestTopic,
+		responseTopicName: responseTopic,
+	}
+}
+
+func (f mqttFixture) responseTopic() string {
+	return f.responseTopicName
+}
+
+func (f mqttFixture) sendAndReadResponse(t *testing.T, request map[string]any) map[string]any {
+	t.Helper()
+
+	requestPayload := getMapField(t, request, "payload")
+	requestID := getStringField(t, requestPayload, "request_id")
+
+	opts := mqtt.NewClientOptions().
+		AddBroker(f.brokerURL).
+		SetClientID(uniqueID("tests-mqtt")).
+		SetCleanSession(true).
+		SetConnectTimeout(defaultDialTimeout)
+
+	if f.username != "" {
+		opts.SetUsername(f.username)
+		opts.SetPassword(f.password)
+	}
+
+	client := mqtt.NewClient(opts)
+	connectToken := client.Connect()
+	if !connectToken.WaitTimeout(defaultDialTimeout) || connectToken.Error() != nil {
+		t.Fatalf("failed to connect to mqtt broker %q: %v", f.brokerURL, connectToken.Error())
+	}
+	defer client.Disconnect(250)
+
+	responseCh := make(chan map[string]any, 1)
+	handler := func(_ mqtt.Client, msg mqtt.Message) {
+		var responseEnvelope map[string]any
+		if err := json.Unmarshal(msg.Payload(), &responseEnvelope); err != nil {
+			return
+		}
+
+		responsePayload, ok := getMapFieldNoFail(responseEnvelope, "payload")
+		if !ok {
+			return
+		}
+
+		if getStringFieldNoFail(responsePayload, "request_id") != requestID {
+			return
+		}
+
+		select {
+		case responseCh <- responsePayload:
+		default:
+		}
+	}
+
+	subToken := client.Subscribe(f.responseTopicName, 1, handler)
+	if !subToken.WaitTimeout(defaultDialTimeout) || subToken.Error() != nil {
+		t.Fatalf("failed to subscribe to mqtt topic %q: %v", f.responseTopicName, subToken.Error())
+	}
+	defer client.Unsubscribe(f.responseTopicName)
+
+	payload, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("failed to marshal request payload: %v", err)
+	}
+
+	pubToken := client.Publish(f.requestTopic, 1, false, payload)
+	if !pubToken.WaitTimeout(defaultPublishTimeout) || pubToken.Error() != nil {
+		t.Fatalf("failed to publish mqtt message to topic %q: %v", f.requestTopic, pubToken.Error())
+	}
+
+	select {
+	case response := <-responseCh:
+		return response
+	case <-time.After(defaultMqttReadTimeout):
+		t.Fatalf("timeout waiting for mqtt response on topic %q", f.responseTopicName)
+		return nil
+	}
+}
+
+func resolveBrokerType() string {
+	if fromEnv := strings.TrimSpace(os.Getenv("BROKER_TYPE")); fromEnv != "" {
+		return strings.ToLower(fromEnv)
+	}
+	if strings.TrimSpace(os.Getenv("MQTT_SERVER")) != "" {
+		return "mqtt"
+	}
+	return "kafka"
+}
+
+func resolveMqttConfig() (brokerURL string, username string, password string) {
+	if fromEnv := strings.TrimSpace(os.Getenv("MQTT_SERVER")); fromEnv != "" {
+		brokerURL = fromEnv
+	} else {
+		brokerURL = "tcp://mosquitto:1883"
+	}
+
+	username = strings.TrimSpace(os.Getenv("MQTT_USERNAME"))
+	password = strings.TrimSpace(os.Getenv("MQTT_PASSWORD"))
+
+	return brokerURL, username, password
+}
+
 func resolveTopics() (requestTopic string, responseTopic string) {
 	if req := strings.TrimSpace(os.Getenv("INSURANCE_REQUEST_TOPIC")); req != "" {
 		requestTopic = req
@@ -344,6 +493,34 @@ func resolveTopics() (requestTopic string, responseTopic string) {
 	}
 
 	return requestTopic, responseTopic
+}
+
+func waitForMqttReady(t *testing.T, brokerURL, username, password string) {
+	t.Helper()
+
+	deadline := time.Now().Add(90 * time.Second)
+	for time.Now().Before(deadline) {
+		opts := mqtt.NewClientOptions().
+			AddBroker(brokerURL).
+			SetClientID(uniqueID("tests-mqtt-health")).
+			SetCleanSession(true).
+			SetConnectTimeout(defaultDialTimeout)
+
+		if username != "" {
+			opts.SetUsername(username)
+			opts.SetPassword(password)
+		}
+
+		client := mqtt.NewClient(opts)
+		token := client.Connect()
+		if token.WaitTimeout(defaultDialTimeout) && token.Error() == nil {
+			client.Disconnect(250)
+			return
+		}
+		time.Sleep(time.Second)
+	}
+
+	t.Fatalf("mqtt broker is unreachable at %q", brokerURL)
 }
 
 func waitForTopicReady(t *testing.T, brokers []string, topic string) {

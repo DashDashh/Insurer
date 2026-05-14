@@ -87,7 +87,7 @@ services:
     restart: "no"
     entrypoint: "true"
     environment:
-      KAFKA_BROKERS: kafka:29092
+      BROKER_TYPE: ${BROKER_TYPE:-kafka}
     networks:
       - drones_net
     #depends_on:

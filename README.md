@@ -12,7 +12,6 @@
 ```bash
 # Локальная разработка (dev compose)
 make docker-up COMPOSE_FILE=docker-compose.dev.yml
-make wait-kafka COMPOSE_FILE=docker-compose.dev.yml
 
 # Логи
 make docker-logs COMPOSE_FILE=docker-compose.dev.yml
@@ -37,10 +36,10 @@ make tests
 ```
 
 ## Переменные окружения
-Для локального запуска через `docker-compose.dev.yml` базовые переменные Kafka уже заданы в compose-файле.
+Для локального запуска через `docker-compose.dev.yml` выбор брокера задается `BROKER_TYPE`.
 
-Файл `.env` используется для дополнительных локальных переопределений (например, namespace и других параметров приложения),
-но для CI и интеграционных тестов он не обязателен.
+Файл `.env` используется для дополнительных локальных переопределений приложения и брокера,
+но для интеграционных тестов достаточно выбрать `BROKER_TYPE` и при необходимости переопределить адрес брокера через `KAFKA_BROKERS` или `MQTT_SERVER`.
 
 
 ## Форматы сообщений для брокера
