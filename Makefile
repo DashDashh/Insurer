@@ -31,6 +31,7 @@ unit-test:
 	@mvn test
 
 integration-test:
+	@docker network create $${DOCKER_NETWORK:-drones_net} >/dev/null 2>&1 || true
 	@BROKER_TYPE=kafka docker compose -f $(TEST_COMPOSE_FILE) --profile kafka up -d --build insurance-service zookeeper kafka kafdrop
 	@BROKER_TYPE=kafka docker compose -f $(TEST_COMPOSE_FILE) run --build --rm --entrypoint go $(TEST_SERVICE) test -race -v ./...
 	-@docker compose -f $(TEST_COMPOSE_FILE) --profile kafka --profile mqtt down --remove-orphans 2>/dev/null
