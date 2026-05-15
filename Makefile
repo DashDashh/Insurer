@@ -33,9 +33,9 @@ unit-test:
 integration-test:
 	@BROKER_TYPE=kafka docker compose -f $(TEST_COMPOSE_FILE) --profile kafka up -d --build insurance-service zookeeper kafka kafdrop
 	@BROKER_TYPE=kafka docker compose -f $(TEST_COMPOSE_FILE) run --build --rm --entrypoint go $(TEST_SERVICE) test -race -v ./...
-	-@docker compose -f $(TEST_COMPOSE_FILE) down 2>/dev/null
+	-@docker compose -f $(TEST_COMPOSE_FILE) --profile kafka --profile mqtt down --remove-orphans 2>/dev/null
 	@BROKER_TYPE=mqtt docker compose -f $(TEST_COMPOSE_FILE) --profile mqtt up -d --build insurance-service mosquitto
 	@BROKER_TYPE=mqtt docker compose -f $(TEST_COMPOSE_FILE) run --build --rm --entrypoint go $(TEST_SERVICE) test -race -v ./...
-	-@docker compose -f $(TEST_COMPOSE_FILE) down 2>/dev/null
+	-@docker compose -f $(TEST_COMPOSE_FILE) --profile kafka --profile mqtt down --remove-orphans 2>/dev/null
 
 tests: unit-test integration-test

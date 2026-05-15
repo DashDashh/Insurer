@@ -1,6 +1,7 @@
 networks:
   drones_net:
     name: ${DOCKER_NETWORK:-drones_net}
+    external: true
 
 services:
   zookeeper:
