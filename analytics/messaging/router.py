@@ -20,8 +20,8 @@ class MessageRouter:
         if not handler:
             raise Exception(f"No handler for action: {action}")
 
-        payload = message.get("payload", {})
+        #payload = message.get("payload", {})
 
         logger.info(f"Routing action: {action}")
 
-        return handler.handle(payload)
+        return handler.handle(message)

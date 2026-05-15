@@ -22,6 +22,22 @@ class MessagingRunner:
             "KBM_UPDATE": KbmHandler()
         })
 
+    def _resolve_reply_topic(self, message: dict) -> str:
+        # 1. Явно указанный reply_to
+        reply_to = message.get("reply_to")
+
+        if reply_to:
+            return reply_to
+
+        # 2. Ответ в системный топик отправителя
+        sender = message.get("sender")
+
+        if sender:
+            return f"systems.{sender}"
+
+        # 3. fallback/debug topic
+        return "component.insurer_analytics"
+
     def start(self):
         logger.info(
             f"Starting messaging runner with profile: "
@@ -53,7 +69,7 @@ class MessagingRunner:
                 response["sender"] = Config.SERVICE_NAME
 
                 sender = message.get("sender", "unknown")
-                target_topic = f"systems.{sender}"
+                target_topic = self._resolve_reply_topic(message)
 
                 logger.info(
                     f"Sending response to topic: {target_topic}"
@@ -76,7 +92,7 @@ class MessagingRunner:
                 response = self.router.route(message)
 
                 sender = message.get("sender", "unknown")
-                target_topic = f"systems.{sender}"
+                target_topic = self._resolve_reply_topic(message)
 
                 logger.info(
                     f"Sending MQTT response to: {target_topic}"
