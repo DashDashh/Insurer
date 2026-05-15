@@ -29,18 +29,18 @@ public class MessageResponse {
 
     // Полезная нагрузка
     @JsonProperty("payload")
-    private InsuranceResponse payload;
+    private Object payload;
 
     // Метаданные
     @JsonProperty("message_type")
     private String messageType;     // "request", "response", "event"
-    @JsonProperty("headers")
-    private Map<String, String> headers;
+    /*@JsonProperty("headers")
+    private Map<String, String> headers;*/
     @JsonProperty("success")
     boolean success;
 
     // Статический метод для создания ответа
-    public static MessageResponse createResponse(String correlationId, InsuranceResponse payload, boolean success) {
+    public static MessageResponse createResponse(String correlationId, Object payload, boolean success) {
         MessageResponse message = new MessageResponse();
         message.setMessageId(UUID.randomUUID().toString());
         message.setCorrelationId(correlationId);

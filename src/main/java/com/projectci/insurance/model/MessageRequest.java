@@ -37,8 +37,8 @@ public class MessageRequest {
     // Метаданные
     @JsonProperty("message_type")
     private String messageType;     // "request", "response", "event"
-    @JsonProperty("headers")
-    private Map<String, String> headers;
+    /*@JsonProperty("headers")
+    private Map<String, String> headers;*/
 
     public enum insuranceAction {
         annual_insurance,
