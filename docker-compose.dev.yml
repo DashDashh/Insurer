@@ -68,12 +68,16 @@ services:
     ports:
       - "8082:8082"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
-      SYSTEM_NAMESPACE: ""
+      SYSTEM_NAMESPACE: ${SYSTEM_NAMESPACE:-}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_PROFILES_ACTIVE: ${BROKER_TYPE:-kafka}
       SPRING_DATASOURCE_URL: jdbc:h2:mem:insurancedb
+      MQTT_SERVER: ${MQTT_SERVER:-tcp://mosquitto:1883}
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
       SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
       SPRING_KAFKA_PROPERTIES_SASL_MECHANISM: ""
       SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG: ""
