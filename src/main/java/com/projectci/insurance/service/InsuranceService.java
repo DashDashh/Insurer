@@ -1,6 +1,5 @@
 package com.projectci.insurance.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectci.insurance.config.TopicConfig;
 import com.projectci.insurance.model.*;
@@ -12,12 +11,9 @@ import com.projectci.insurance.utils.NamespaceUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import com.fasterxml.jackson.databind.JsonNode;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.math.BigDecimal;
+import java.util.*;
 
 @Service
 //@RequiredArgsConstructor
@@ -33,6 +29,7 @@ public class InsuranceService {
     private final String systemId;
     private final ObjectMapper objectMapper;
     Map<String,String> correlationResponseTopic = new HashMap<>();
+    Map<String, Policy.PolicyType> correlationPurePurchaseType = new HashMap<>();
 
     public InsuranceService(
             MessagePublisher messagePublisher,
@@ -65,6 +62,7 @@ public class InsuranceService {
         Object payload = message.getPayload();
         InsuranceResponse response = null;
         AnalyticsMessage analyticsRequest = null;
+        Object result = null;
 
         try {
             // Обработка запроса
@@ -72,11 +70,11 @@ public class InsuranceService {
             switch (message.getAction()) {
                 case annual_insurance:
                     log.info("IN CASE ANNUAL", message.getAction(), systemId);
-                    response = processPurchase(request, Policy.PolicyType.annual);
+                    result = processPurchase(request, Policy.PolicyType.annual, message.getCorrelationId());
                     break;
                 case mission_insurance:
                     log.info("IN CASE MISSION", message.getAction(), systemId);
-                    response = processPurchase(request, Policy.PolicyType.mission);
+                    result = processPurchase(request, Policy.PolicyType.mission, message.getCorrelationId());
                     break;
                 case calculate_policy:
                     log.info("IN CASE CALC", message.getAction(), systemId);
@@ -84,7 +82,7 @@ public class InsuranceService {
                     break;
                 case purchase_policy:
                     log.info("IN CASE PURCHASE", message.getAction(), systemId);
-                    response = processPurchase(request, Policy.PolicyType.annual);
+                    result = processPurchase(request, Policy.PolicyType.annual, message.getCorrelationId());
                     break;
                 case report_incident:
                     log.info("IN CASE REPORT", message.getAction(), systemId);
@@ -96,6 +94,14 @@ public class InsuranceService {
                     break;
                 default:
                     response = createErrorResponse(request, "Unknown request type");
+            }
+
+            if (result != null) {
+                if (result instanceof InsuranceResponse) {
+                    response = convertPayload(request, InsuranceResponse.class);
+                } else if (result instanceof AnalyticsMessage) {
+                    analyticsRequest = convertPayload(result, AnalyticsMessage.class);
+                }
             }
 
             if (response != null) {
@@ -160,7 +166,7 @@ public class InsuranceService {
             switch (action) {
                 case "CALCULATION_RESULT":
                     CalcResponse request = convertPayload(payload, CalcResponse.class);
-                    response = processAnalyticsCalc(request);
+                    response = processAnalyticsCalc(request, message.getCorrelationId());
                     break;
                 case "INCIDENT_RESULT":
                     break;
@@ -276,26 +282,32 @@ public class InsuranceService {
                 .build();*/
     }
 
-    private InsuranceResponse processPurchase(InsuranceRequest request, Policy.PolicyType type) {
+    private Object processPurchase(InsuranceRequest request, Policy.PolicyType type, String correlationId) {
         // ОФ2 - Покупка полиса
-        Policy policy = policyService.createPolicy(request, type);
-
-        return InsuranceResponse.builder()
-                .responseId(UUID.randomUUID().toString())
-                .requestId(request.getRequestId())
-                .orderId(request.getOrderId())
-                .policyId(policy.getId())
-                .policyType(type)
-                .policyStatus(policy.getStatus())
-                .droneId(policy.getDroneId())
-                .droneKbm(policy.getDroneKbm())
-                /*.status(InsuranceResponse.ResponseStatus.SUCCESS)*/
-                .policyStartDate(policy.getStartDate())
-                .policyEndDate(policy.getEndDate())
-                .calculatedCost(policy.getCost())
-                .coverageAmount(request.getCoverageAmount())
-                .message("Полис успешно оформлен")
-                .build();
+        Optional<Policy> savedPolicy = policyService.getActivePolicyForOrder(request.getOrderId());
+        if (savedPolicy.isPresent()) {
+            policyService.updatePolicyStatus(savedPolicy.get().getPolicyNumber(), Policy.PolicyStatus.active);
+            Policy policy = savedPolicy.get();
+            policy.setStatus(Policy.PolicyStatus.active);
+            return InsuranceResponse.builder()
+                    .responseId(UUID.randomUUID().toString())
+                    .requestId(request.getRequestId())
+                    .orderId(request.getOrderId())
+                    .policyId(policy.getId())
+                    .policyType(type)
+                    .policyStatus(policy.getStatus())
+                    .droneId(policy.getDroneId())
+                    .droneKbm(policy.getDroneKbm())
+                    .policyStartDate(policy.getStartDate())
+                    .policyEndDate(policy.getEndDate())
+                    .calculatedCost(policy.getCost())
+                    .coverageAmount(request.getCoverageAmount())
+                    .message("Полис успешно оформлен")
+                    .build();
+        }
+        // запрос к аналитике
+        correlationPurePurchaseType.put(correlationId, type);
+        return processCalculation(request, correlationId);
     }
 
     private InsuranceResponse processIncident(InsuranceRequest request) {
@@ -344,7 +356,35 @@ public class InsuranceService {
         }
     }
 
-    private InsuranceResponse processAnalyticsCalc(CalcResponse request) {
+    private InsuranceResponse processAnalyticsCalc(CalcResponse request, String correlationId) {
+        if (correlationPurePurchaseType.containsKey(correlationId)){
+            // возвращаем респонс для покупки а не простого рассчета
+            Policy.PolicyType policyType = correlationPurePurchaseType.get(correlationId);
+            correlationPurePurchaseType.remove(correlationId);
+
+            BigDecimal droneKbm = kbmService.getDroneKbm(request.getDroneId());
+            Policy policy = policyService.createPolicy(
+                    request,
+                    policyType,
+                    Policy.PolicyStatus.active,
+                    droneKbm
+            );
+
+            return InsuranceResponse.builder()
+                    .responseId(UUID.randomUUID().toString())
+                    .orderId(request.getOrderId())
+                    .policyId(policy.getId())
+                    .policyType(policyType)
+                    .policyStatus(policy.getStatus())
+                    .droneId(policy.getDroneId())
+                    .droneKbm(policy.getDroneKbm())
+                    .policyStartDate(policy.getStartDate())
+                    .policyEndDate(policy.getEndDate())
+                    .calculatedCost(policy.getCost())
+                    .coverageAmount(request.getCoverageAmount())
+                    .message("Полис успешно оформлен")
+                    .build();
+        }
         return InsuranceResponse.builder()
                 .responseId(UUID.randomUUID().toString())
                 .orderId(request.getOrderId())

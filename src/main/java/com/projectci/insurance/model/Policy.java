@@ -3,6 +3,7 @@ package com.projectci.insurance.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "policies")
 @Data
+@Getter
 public class Policy {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -49,7 +51,8 @@ public class Policy {
 
     public enum PolicyStatus {
         active,
-        terminated
+        terminated,
+        calculated
     }
 
     public enum PolicyType {

@@ -14,6 +14,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -25,17 +26,28 @@ public class KbmService {
     private final KbmCalculationRepository kbmRepository;
 
     // Заглушка: хранилище КБМ в памяти (в реальности - БД)
-    private final Map<String, BigDecimal> manufacturerKbms = new ConcurrentHashMap<>();
-    private final Map<String, BigDecimal> operatorKbms = new ConcurrentHashMap<>();
+    //private final Map<String, BigDecimal> manufacturerKbms = new ConcurrentHashMap<>();
+    //private final Map<String, BigDecimal> operatorKbms = new ConcurrentHashMap<>();
 
     public BigDecimal getManufacturerKbm(String manufacturerId) {
-        return manufacturerKbms.getOrDefault(manufacturerId, properties.getBaseKbm());
+        //return manufacturerKbms.getOrDefault(manufacturerId, properties.getBaseKbm());
+        Optional<KbmCalculation> lastCalc = kbmRepository.findFirstByEntityIdAndEntityTypeOrderByCalculationDateDesc(manufacturerId, "MANUFACTURER");
+        return lastCalc.map(KbmCalculation::getNewKbm).orElse(properties.getBaseKbm());
     }
 
     public BigDecimal getOperatorKbm(String operatorId) {
-        return operatorKbms.getOrDefault(operatorId, properties.getBaseKbm());
+        //return operatorKbms.getOrDefault(operatorId, properties.getBaseKbm());
+        Optional<KbmCalculation> lastCalc = kbmRepository.findFirstByEntityIdAndEntityTypeOrderByCalculationDateDesc(operatorId, "OPERATOR");
+        return lastCalc.map(KbmCalculation::getNewKbm).orElse(properties.getBaseKbm());
     }
 
+    public BigDecimal getDroneKbm(String droneId) {
+        //return operatorKbms.getOrDefault(operatorId, properties.getBaseKbm());
+        Optional<KbmCalculation> lastCalc = kbmRepository.findFirstByEntityIdAndEntityTypeOrderByCalculationDateDesc(droneId, "DRONE");
+        return lastCalc.map(KbmCalculation::getNewKbm).orElse(properties.getBaseKbm());
+    }
+
+    // заменены сервисом аналитики
     public BigDecimal calculatePolicyCost(InsuranceRequest request) {
         // Заглушка: простая формула стоимости
         BigDecimal baseCost = properties.getBaseCost();
@@ -73,11 +85,11 @@ public class KbmService {
         KbmCalculation saved = kbmRepository.save(calculation);
 
         // Обновляем текущее значение
-        if (entityType.equals("MANUFACTURER")) {
+        /*if (entityType.equals("MANUFACTURER")) {
             manufacturerKbms.put(entityId, newKbm);
         } else {
             operatorKbms.put(entityId, newKbm);
-        }
+        }*/
 
         log.info("KBM updated from {} to {}", currentKbm, newKbm);
 
