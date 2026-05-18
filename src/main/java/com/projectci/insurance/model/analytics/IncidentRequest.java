@@ -15,6 +15,9 @@ public class IncidentRequest {
     @JsonProperty("request_id")
     private String requestId;
 
+    @JsonProperty("order_id")
+    private String orderId;
+
     @JsonProperty("manufacturer_id")
     private String manufacturerId;
 
@@ -24,15 +27,9 @@ public class IncidentRequest {
     @JsonProperty("drone_id")
     private String droneId;
 
-    @JsonProperty("incident_id")
-    private String incidentId;
+    @JsonProperty("coverage_amount")
+    private BigDecimal coverageAmount;
 
-    @JsonProperty("order_id")
-    private String orderId;
-
-    @JsonProperty("policy_id")
-    private String policyId;
-
-    @JsonProperty("damage_amount")
-    private BigDecimal damageAmount;
+    @JsonProperty("incident")
+    private AnalyticsIncident incident;
 }

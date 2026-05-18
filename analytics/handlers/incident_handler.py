@@ -22,7 +22,7 @@ class IncidentHandler:
 
         incident = Incident(
             incident_id=incident_data["incident_id"],
-            order_id=incident_data["order_id"],
+            order_id=payload["order_id"],
             policy_id=incident_data["policy_id"],
             damage_amount=incident_data["damage_amount"]
         )

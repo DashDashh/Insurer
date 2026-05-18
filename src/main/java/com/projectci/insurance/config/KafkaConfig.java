@@ -1,7 +1,9 @@
 package com.projectci.insurance.config;
 
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.projectci.insurance.model.MessageRequest;
 import com.projectci.insurance.model.MessageResponse;
 import com.projectci.insurance.utils.NamespaceUtils;
 import jakarta.annotation.PostConstruct;
@@ -38,6 +40,7 @@ public class KafkaConfig {
 
     private final NamespaceUtils namespaceUtils;
     private final TopicConfig topicConfig;
+    private final ObjectMapper objectMapper;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;

@@ -72,6 +72,11 @@ public class PolicyService {
                 .filter(p -> p.getStatus() == Policy.PolicyStatus.active);
     }
 
+    public Optional<Policy> getCalculatedPolicyForOrder(String orderId) {
+        return policyRepository.findByOrderId(orderId)
+                .filter(p -> p.getStatus() == Policy.PolicyStatus.calculated);
+    }
+
     @Transactional
     public void updatePolicyStatus(String policyNumber, Policy.PolicyStatus newStatus) {
         policyRepository.updatePolicyStatusByPolicyNumber(policyNumber, newStatus);

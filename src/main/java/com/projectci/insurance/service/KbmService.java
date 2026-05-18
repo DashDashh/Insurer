@@ -1,7 +1,6 @@
 package com.projectci.insurance.service;
 
 import com.projectci.insurance.config.InsuranceProperties;
-import com.projectci.insurance.model.Incident;
 import com.projectci.insurance.model.InsuranceRequest;
 import com.projectci.insurance.model.KbmCalculation;
 import com.projectci.insurance.repository.KbmCalculationRepository;
@@ -12,10 +11,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -35,10 +32,28 @@ public class KbmService {
         return lastCalc.map(KbmCalculation::getNewKbm).orElse(properties.getBaseKbm());
     }
 
+    public List<KbmCalculation> getManufacturerHistory(String manufacturerId) {
+        return kbmRepository.findByEntityIdAndEntityTypeAndCalculationDateBetween(
+                manufacturerId,
+                "MANUFACTURER",
+                LocalDateTime.now(),
+                LocalDateTime.now().plusYears(1L)
+        );
+    }
+
     public BigDecimal getOperatorKbm(String operatorId) {
         //return operatorKbms.getOrDefault(operatorId, properties.getBaseKbm());
         Optional<KbmCalculation> lastCalc = kbmRepository.findFirstByEntityIdAndEntityTypeOrderByCalculationDateDesc(operatorId, "OPERATOR");
         return lastCalc.map(KbmCalculation::getNewKbm).orElse(properties.getBaseKbm());
+    }
+
+    public List<KbmCalculation> getOperatorHistory(String operatorId) {
+        return kbmRepository.findByEntityIdAndEntityTypeAndCalculationDateBetween(
+                operatorId,
+                "OPERATOR",
+                LocalDateTime.now(),
+                LocalDateTime.now().plusYears(1L)
+        );
     }
 
     public BigDecimal getDroneKbm(String droneId) {
@@ -61,7 +76,7 @@ public class KbmService {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    public KbmCalculation recalculateKbm(String entityId, String entityType, Incident incident) {
+    public void recalculateKbm(String entityId, String entityType, BigDecimal newKbm, String incidentId, int incidentsCount) {
         log.info("Recalculating KBM for {}: {}", entityType, entityId);
 
         BigDecimal currentKbm = entityType.equals("MANUFACTURER")
@@ -70,7 +85,7 @@ public class KbmService {
 
         // ОФ5: Пересчёт КБМ с учётом инцидентов
         // Заглушка: увеличиваем КБМ на 10% при инциденте
-        BigDecimal newKbm = currentKbm.multiply(new BigDecimal("1.1"));
+        //BigDecimal newKbm = currentKbm.multiply(new BigDecimal("1.1"));
 
         // Сохраняем результат
         KbmCalculation calculation = new KbmCalculation();
@@ -78,21 +93,13 @@ public class KbmService {
         calculation.setEntityType(entityType);
         calculation.setCurrentKbm(currentKbm);
         calculation.setNewKbm(newKbm);
-        calculation.setIncidentCount(1); // Заглушка
+        calculation.setIncidentCount(incidentsCount);
         calculation.setCalculationDate(LocalDateTime.now());
-        calculation.setRelatedIncidentId(incident != null ? incident.getId() : null);
+        calculation.setRelatedIncidentId(incidentId);
 
         KbmCalculation saved = kbmRepository.save(calculation);
 
-        // Обновляем текущее значение
-        /*if (entityType.equals("MANUFACTURER")) {
-            manufacturerKbms.put(entityId, newKbm);
-        } else {
-            operatorKbms.put(entityId, newKbm);
-        }*/
-
         log.info("KBM updated from {} to {}", currentKbm, newKbm);
 
-        return saved;
     }
 }

@@ -3,9 +3,7 @@ package com.projectci.insurance.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectci.insurance.config.TopicConfig;
 import com.projectci.insurance.model.*;
-import com.projectci.insurance.model.analytics.AnalyticsMessage;
-import com.projectci.insurance.model.analytics.CalcRequest;
-import com.projectci.insurance.model.analytics.CalcResponse;
+import com.projectci.insurance.model.analytics.*;
 import com.projectci.insurance.producer.MessagePublisher;
 import com.projectci.insurance.utils.NamespaceUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +28,8 @@ public class InsuranceService {
     private final ObjectMapper objectMapper;
     Map<String,String> correlationResponseTopic = new HashMap<>();
     Map<String, Policy.PolicyType> correlationPurePurchaseType = new HashMap<>();
+    Map<String, InsuranceResponse> kbmCalcWaiting = new HashMap<>();
+    Map<String, String> incidentsInProgress = new HashMap<>();
 
     public InsuranceService(
             MessagePublisher messagePublisher,
@@ -61,7 +61,7 @@ public class InsuranceService {
 
         Object payload = message.getPayload();
         InsuranceResponse response = null;
-        AnalyticsMessage analyticsRequest = null;
+        List<AnalyticsMessage> analyticsRequest = null;
         Object result = null;
 
         try {
@@ -86,7 +86,7 @@ public class InsuranceService {
                     break;
                 case report_incident:
                     log.info("IN CASE REPORT", message.getAction(), systemId);
-                    response = processIncident(request);
+                    result = processIncident(request, message.getCorrelationId());
                     break;
                 case terminate_policy:
                     log.info("IN CASE TERM", message.getAction(), systemId);
@@ -98,9 +98,13 @@ public class InsuranceService {
 
             if (result != null) {
                 if (result instanceof InsuranceResponse) {
-                    response = convertPayload(request, InsuranceResponse.class);
-                } else if (result instanceof AnalyticsMessage) {
+                    response = (InsuranceResponse) result;
+                }
+                /*else if (result instanceof AnalyticsMessage) {
                     analyticsRequest = convertPayload(result, AnalyticsMessage.class);
+                }*/
+                else if (result instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof AnalyticsMessage) {
+                    analyticsRequest = (List<AnalyticsMessage>) result;
                 }
             }
 
@@ -125,13 +129,15 @@ public class InsuranceService {
                 logMessagePublish(responseTopic, messageOut.getCorrelationId());
             }
             else if (analyticsRequest != null) {
-                messagePublisher.send(
-                        "component.insurer_analytics",
-                        analyticsRequest.getCorrelationId(),
-                        analyticsRequest
-                );
-                correlationResponseTopic.put(message.getCorrelationId(), determineResponseTopic(message));
-                logMessagePublish("component.insurer_analytics", analyticsRequest.getCorrelationId());
+                for (AnalyticsMessage msg : analyticsRequest) {
+                    messagePublisher.send(
+                            "component.insurer_analytics",
+                            msg.getCorrelationId(),
+                            msg
+                    );
+                    correlationResponseTopic.put(message.getCorrelationId(), determineResponseTopic(message));
+                    logMessagePublish("component.insurer_analytics", msg.getCorrelationId());
+                }
             }
 
         } catch (Exception e) {
@@ -169,36 +175,64 @@ public class InsuranceService {
                     response = processAnalyticsCalc(request, message.getCorrelationId());
                     break;
                 case "INCIDENT_RESULT":
+                    log.info("IN CASE INCIDENT_RESULT");
+                    IncidentResponse incidentResponse = convertPayload(payload, IncidentResponse.class);
+                    response = processAnalyticsIncidentResponse(incidentResponse, message.getCorrelationId());
                     break;
                 case "KBM_UPDATE_RESULT":
+                    KbmResponse kbmResponse = convertPayload(payload, KbmResponse.class);
+                    InsuranceResponse incompleted = kbmCalcWaiting.getOrDefault(message.getCorrelationId(), null);
+                    String incidentId = incidentsInProgress.getOrDefault(message.getCorrelationId(), null);
+                    if (incompleted != null) {
+                        kbmCalcWaiting.remove(message.getCorrelationId());
+                    }
+                    if (incidentId != null) {
+                        incidentsInProgress.remove(message.getCorrelationId());
+                    }
+                    if (incompleted != null && incidentId != null) {
+                        response = processAnalyticsKbmUpdate(kbmResponse, incompleted, incidentId);
+                    }
                     break;
                 default:
-                    // TODO: обработка неизвестного типа ответа
+                    log.error("Unknown request type: {}", message);
+
+                    // Отправляем в dead letters
+                    messagePublisher.send(
+                            TopicConfig.DEAD_LETTERS_TOPIC,
+                            null,
+                            message
+                    );
                     break;
             }
             if (response != null) {
-                // Определяем топик для ответа (с учетом namespace)
-                // Ответ отправляем сохраненный перед отправкой в аналитику топик для ответа
-                String responseTopic = correlationResponseTopic.getOrDefault(message.getCorrelationId(), TopicConfig.DEAD_LETTERS_TOPIC);
-                if (!responseTopic.equals(TopicConfig.DEAD_LETTERS_TOPIC)) {
-                    correlationResponseTopic.remove(message.getCorrelationId());
+                if (message.getAction().equals("INCIDENT_RESULT")){
+                    kbmCalcWaiting.put(message.getCorrelationId(), response);
                 }
+                else {
+                    // Определяем топик для ответа (с учетом namespace)
+                    // Ответ отправляем сохраненный перед отправкой в аналитику топик для ответа
+                    String responseTopic = correlationResponseTopic.getOrDefault(message.getCorrelationId(), TopicConfig.DEAD_LETTERS_TOPIC);
+                    if (!responseTopic.equals(TopicConfig.DEAD_LETTERS_TOPIC)) {
+                        correlationResponseTopic.remove(message.getCorrelationId());
+                    }
 
-                // формируем сообщение
-                MessageResponse messageOut = MessageResponse.createResponse(
-                        message.getCorrelationId(), // correlationId
-                        response,
-                        true
-                );
+                    // формируем сообщение
+                    MessageResponse messageOut = MessageResponse.createResponse(
+                            message.getCorrelationId(), // correlationId
+                            response,
+                            true
+                    );
 
-                // Отправка ответа
-                messagePublisher.send(
-                        responseTopic,
-                        response.getOrderId(),
-                        messageOut
-                );
-                logMessagePublish(responseTopic, messageOut.getCorrelationId());
+                    // Отправка ответа
+                    messagePublisher.send(
+                            responseTopic,
+                            response.getOrderId(),
+                            messageOut
+                    );
+                    logMessagePublish(responseTopic, messageOut.getCorrelationId());
+                }
             }
+
         }
         catch (Exception e) {
             log.error("Error processing request: {}", payload, e);
@@ -244,7 +278,7 @@ public class InsuranceService {
         );
     }
 
-    private AnalyticsMessage processCalculation(InsuranceRequest request, String correlationId) {
+    private List<AnalyticsMessage> processCalculation(InsuranceRequest request, String correlationId) {
         // ОФ1 - обращение к страховой аналитике
         CalcRequest payload = new CalcRequest(
                 UUID.randomUUID().toString(),
@@ -258,7 +292,9 @@ public class InsuranceService {
                 request.getSecurityGoals(),
                 request.getCoverageAmount()
         );
-        return new AnalyticsMessage(
+
+        return List.of (
+                new AnalyticsMessage(
                 UUID.randomUUID().toString(),
                 AnalyticsMessage.AnalyticsAction.CALCULATION,
                 "insurance-service",
@@ -267,6 +303,7 @@ public class InsuranceService {
                 System.currentTimeMillis(),
                 payload,
                 "request"
+                )
         );
         // старая заглушка для расчёта
         /*return InsuranceResponse.builder()
@@ -284,11 +321,12 @@ public class InsuranceService {
 
     private Object processPurchase(InsuranceRequest request, Policy.PolicyType type, String correlationId) {
         // ОФ2 - Покупка полиса
-        Optional<Policy> savedPolicy = policyService.getActivePolicyForOrder(request.getOrderId());
+        Optional<Policy> savedPolicy = policyService.getCalculatedPolicyForOrder(request.getOrderId());
         if (savedPolicy.isPresent()) {
             policyService.updatePolicyStatus(savedPolicy.get().getPolicyNumber(), Policy.PolicyStatus.active);
             Policy policy = savedPolicy.get();
             policy.setStatus(Policy.PolicyStatus.active);
+
             return InsuranceResponse.builder()
                     .responseId(UUID.randomUUID().toString())
                     .requestId(request.getRequestId())
@@ -307,36 +345,109 @@ public class InsuranceService {
         }
         // запрос к аналитике
         correlationPurePurchaseType.put(correlationId, type);
+
         return processCalculation(request, correlationId);
     }
 
-    private InsuranceResponse processIncident(InsuranceRequest request) {
+    private Object processIncident(InsuranceRequest request, String correlationId) {
         // ОФ4 - Обработка инцидента
+
+        if (policyService.getActivePolicyForOrder(request.getOrderId()).isEmpty()) {
+            return createErrorResponse(request, "There is no policy for order " + request.getOrderId());
+        }
+
         Incident incident = request.getIncident();
         if (incident == null) {
             return createErrorResponse(request, "Incident data is missing");
         }
+        if (incident.getManufacturerId() == null) incident.setManufacturerId(request.getManufacturerId());
+        if (incident.getOperatorId() == null) incident.setOperatorId(request.getOperatorId());
 
-        // Обработка инцидента
         Incident processedIncident = incidentService.processIncident(incident);
 
+        AnalyticsIncident analyticsIncident = AnalyticsIncident.fromInsuranceIncident(processedIncident);
+        // payload запроса по инциденту
+        IncidentRequest incidentRequest = new IncidentRequest(
+                UUID.randomUUID().toString(),
+                request.getOrderId(),
+                request.getManufacturerId(),
+                request.getOperatorId(),
+                request.getDroneId(),
+                request.getCoverageAmount(),
+                analyticsIncident
+        );
+
+        // payload запроса по кбм
+        BigDecimal manufacturerKbm = kbmService.getManufacturerKbm(request.getManufacturerId());
+        BigDecimal operatorKbm = kbmService.getOperatorKbm(request.getOperatorId());
+
+        List<IncidentRecord> manufacturerHistory = incidentService
+                .getManufacturerIncidentHistory(request.getManufacturerId())
+                .stream()
+                .map(Incident::toIncidentRecord)
+                .toList();
+        List<IncidentRecord> operatorHistory = incidentService
+                .getOperatorIncidentHistory(request.getOperatorId())
+                .stream()
+                .map(Incident::toIncidentRecord)
+                .toList();
+
+        KbmRequest kbmRequest = new KbmRequest(
+                UUID.randomUUID().toString(),
+                request.getOrderId(),
+                request.getManufacturerId(),
+                request.getOperatorId(),
+                request.getDroneId(),
+                manufacturerKbm,
+                operatorKbm,
+                manufacturerHistory,
+                operatorHistory
+        );
+
+        incidentsInProgress.put(correlationId, incident.getIncidentId());
+        return List.of(
+                new AnalyticsMessage(
+                        UUID.randomUUID().toString(),
+                        AnalyticsMessage.AnalyticsAction.INCIDENT,
+                        "insurance-service",
+                        "component.analytics.response",
+                        correlationId,
+                        System.currentTimeMillis(),
+                        incidentRequest,
+                        "request"
+                ),
+                new AnalyticsMessage(
+                        UUID.randomUUID().toString(),
+                        AnalyticsMessage.AnalyticsAction.KBM_UPDATE,
+                        "insurance-service",
+                        "component.analytics.response",
+                        correlationId,
+                        System.currentTimeMillis(),
+                        kbmRequest,
+                        "request"
+                )
+        );
+
+        // Обработка инцидента
+        //Incident processedIncident = incidentService.processIncident(incident);
+
         // Пересчёт КБМ (ОФ5)
-        KbmCalculation manufacturerKbm = kbmService.recalculateKbm(
+        /*KbmCalculation manufacturerKbm = kbmService.recalculateKbm(
                 request.getManufacturerId(), "MANUFACTURER", processedIncident);
         KbmCalculation operatorKbm = kbmService.recalculateKbm(
-                request.getOperatorId(), "OPERATOR", processedIncident);
+                request.getOperatorId(), "OPERATOR", processedIncident);*/
 
-        return InsuranceResponse.builder()
+        /*return InsuranceResponse.builder()
                 .responseId(UUID.randomUUID().toString())
                 .requestId(request.getRequestId())
                 .orderId(request.getOrderId())
-                /*.status(InsuranceResponse.ResponseStatus.SUCCESS)*/
+                *//*.status(InsuranceResponse.ResponseStatus.SUCCESS)*//*
                 .coverageAmount(processedIncident.getDamageAmount())
                 .paymentAmount(processedIncident.getDamageAmount()) // Заглушка
                 .newManufacturerKbm(manufacturerKbm.getNewKbm())
                 .newOperatorKbm(operatorKbm.getNewKbm())
                 .message("Инцидент обработан, произведена выплата")
-                .build();
+                .build();*/
     }
 
     private InsuranceResponse processPolicyTermination(InsuranceRequest request) {
@@ -385,6 +496,14 @@ public class InsuranceService {
                     .message("Полис успешно оформлен")
                     .build();
         }
+
+        policyService.createPolicy(
+                request,
+                Policy.PolicyType.annual,
+                Policy.PolicyStatus.calculated,
+                kbmService.getDroneKbm(request.getDroneId())
+        );
+
         return InsuranceResponse.builder()
                 .responseId(UUID.randomUUID().toString())
                 .orderId(request.getOrderId())
@@ -394,6 +513,50 @@ public class InsuranceService {
                 .operatorKbm(kbmService.getOperatorKbm(request.getOperatorId()))
                 .message("Расчёт выполнен успешно")
                 .build();
+    }
+
+    private InsuranceResponse processAnalyticsIncidentResponse(IncidentResponse incidentResponse, String correlationId) {
+        log.info("IN METHOD processAnalyticsIncidentResponse");
+        String message = incidentResponse.isFraud()? "Suspected fraud, payment rejected" : "Инцидент обработан, произведена выплата";
+
+        return InsuranceResponse.builder()
+                .responseId(UUID.randomUUID().toString())
+                .orderId(incidentResponse.getOrderId())
+                .droneId(incidentResponse.getDroneId())
+                .coverageAmount(incidentResponse.getCoverageAmount())
+                .message(message)
+                .newManufacturerKbm(null)
+                .newOperatorKbm(null)
+                .paymentAmount(incidentResponse.getPaymentAmount())
+                .build();
+    }
+
+    private InsuranceResponse processAnalyticsKbmUpdate(KbmResponse kbmResponse, InsuranceResponse incompleted, String incidentId) {
+        BigDecimal newManufacturerKbm = kbmResponse.getNewManufacturerKbm();
+        BigDecimal newOperatorKbm = kbmResponse.getNewOperatorKbm();
+
+        incompleted.setNewManufacturerKbm(newManufacturerKbm);
+        incompleted.setNewOperatorKbm(newOperatorKbm);
+
+        int manufacturerIncCount = incidentService.getManufacturerIncidentHistory(kbmResponse.getManufacturerId()).size();
+        int operatorIncCount = incidentService.getOperatorIncidentHistory(kbmResponse.getOperatorId()).size();
+
+        kbmService.recalculateKbm(
+                kbmResponse.getManufacturerId(),
+                "MANUFACTURER",
+                newManufacturerKbm,
+                incidentId,
+                manufacturerIncCount
+        );
+        kbmService.recalculateKbm(
+                kbmResponse.getOperatorId(),
+                "OPERATOR",
+                newOperatorKbm,
+                incidentId,
+                operatorIncCount
+        );
+
+        return incompleted;
     }
 
     private InsuranceResponse createErrorResponse(InsuranceRequest request, String errorMessage) {

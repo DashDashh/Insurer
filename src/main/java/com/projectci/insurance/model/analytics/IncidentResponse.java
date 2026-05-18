@@ -11,9 +11,36 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class IncidentResponse {
+    @JsonProperty("order_id")
+    private String orderId;
+
+    @JsonProperty("policy_id")
+    private String policyId;
+
+    @JsonProperty("incident_id")
+    private String incidentId;
+
+    @JsonProperty("manufacturer_id")
+    private String manufacturerId;
+
+    @JsonProperty("operator_id")
+    private String operatorId;
+
+    @JsonProperty("drone_id")
+    private String droneId;
+
     @JsonProperty("payment_amount")
     private BigDecimal paymentAmount;
 
-    @JsonProperty("remaining_coverage")
-    private BigDecimal remainingCoverage;
+    @JsonProperty("message")
+    private String message;
+
+    @JsonProperty("is_fraud")
+    private boolean isFraud;
+
+    @JsonProperty("coverage_amount")
+    private BigDecimal coverageAmount;
+
+    @JsonProperty("damage_amount")
+    private BigDecimal damageAmount;
 }
