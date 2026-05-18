@@ -5,7 +5,7 @@ class Config:
     SERVICE_NAME = "analytics"
 
     # broker
-    MESSAGING_PROFILE = os.getenv("MESSAGING_PROFILE", "kafka")  # kafka | mqtt
+    MESSAGING_PROFILE = os.getenv("MESSAGING_PROFILE", "mqtt")  # kafka | mqtt
 
     # kafka
     KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
