@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 import java.util.*;
 
 @Service
-//@RequiredArgsConstructor
 @Slf4j
 public class InsuranceService {
 
@@ -69,27 +68,21 @@ public class InsuranceService {
             InsuranceRequest request = convertPayload(payload, InsuranceRequest.class);
             switch (message.getAction()) {
                 case annual_insurance:
-                    log.info("IN CASE ANNUAL", message.getAction(), systemId);
                     result = processPurchase(request, Policy.PolicyType.annual, message.getCorrelationId());
                     break;
                 case mission_insurance:
-                    log.info("IN CASE MISSION", message.getAction(), systemId);
                     result = processPurchase(request, Policy.PolicyType.mission, message.getCorrelationId());
                     break;
                 case calculate_policy:
-                    log.info("IN CASE CALC", message.getAction(), systemId);
                     analyticsRequest = processCalculation(request, message.getCorrelationId());
                     break;
                 case purchase_policy:
-                    log.info("IN CASE PURCHASE", message.getAction(), systemId);
                     result = processPurchase(request, Policy.PolicyType.annual, message.getCorrelationId());
                     break;
                 case report_incident:
-                    log.info("IN CASE REPORT", message.getAction(), systemId);
                     result = processIncident(request, message.getCorrelationId());
                     break;
                 case terminate_policy:
-                    log.info("IN CASE TERM", message.getAction(), systemId);
                     response = processPolicyTermination(request);
                     break;
                 default:
@@ -100,9 +93,6 @@ public class InsuranceService {
                 if (result instanceof InsuranceResponse) {
                     response = (InsuranceResponse) result;
                 }
-                /*else if (result instanceof AnalyticsMessage) {
-                    analyticsRequest = convertPayload(result, AnalyticsMessage.class);
-                }*/
                 else if (result instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof AnalyticsMessage) {
                     analyticsRequest = (List<AnalyticsMessage>) result;
                 }
@@ -143,14 +133,6 @@ public class InsuranceService {
         } catch (Exception e) {
             log.error("Error processing request: {}", payload, e);
 
-            // Создаем сообщение об ошибке
-            /*InsuranceResponse errorResponse = createErrorResponse(payload, e.getMessage());
-            MessageResponse errorMessage = MessageResponse.createResponse(
-                    payload.getRequestId(),
-                    errorResponse,
-                    false
-            );*/
-
             // Отправляем в dead letters
             messagePublisher.send(
                     TopicConfig.DEAD_LETTERS_TOPIC,
@@ -175,7 +157,6 @@ public class InsuranceService {
                     response = processAnalyticsCalc(request, message.getCorrelationId());
                     break;
                 case "INCIDENT_RESULT":
-                    log.info("IN CASE INCIDENT_RESULT");
                     IncidentResponse incidentResponse = convertPayload(payload, IncidentResponse.class);
                     response = processAnalyticsIncidentResponse(incidentResponse, message.getCorrelationId());
                     break;
@@ -305,18 +286,6 @@ public class InsuranceService {
                 "request"
                 )
         );
-        // старая заглушка для расчёта
-        /*return InsuranceResponse.builder()
-                .responseId(UUID.randomUUID().toString())
-                .requestId(request.getRequestId())
-                .orderId(request.getOrderId())
-                //.status(InsuranceResponse.ResponseStatus.SUCCESS)
-                .calculatedCost(kbmService.calculatePolicyCost(request))
-                .coverageAmount(request.getCoverageAmount())
-                .manufacturerKbm(kbmService.getManufacturerKbm(request.getManufacturerId()))
-                .operatorKbm(kbmService.getOperatorKbm(request.getOperatorId()))
-                .message("Расчёт выполнен успешно")
-                .build();*/
     }
 
     private Object processPurchase(InsuranceRequest request, Policy.PolicyType type, String correlationId) {
@@ -351,7 +320,6 @@ public class InsuranceService {
 
     private Object processIncident(InsuranceRequest request, String correlationId) {
         // ОФ4 - Обработка инцидента
-
         if (policyService.getActivePolicyForOrder(request.getOrderId()).isEmpty()) {
             return createErrorResponse(request, "There is no policy for order " + request.getOrderId());
         }
@@ -392,6 +360,7 @@ public class InsuranceService {
                 .map(Incident::toIncidentRecord)
                 .toList();
 
+        // Пересчёт КБМ (ОФ5)
         KbmRequest kbmRequest = new KbmRequest(
                 UUID.randomUUID().toString(),
                 request.getOrderId(),
@@ -427,27 +396,6 @@ public class InsuranceService {
                         "request"
                 )
         );
-
-        // Обработка инцидента
-        //Incident processedIncident = incidentService.processIncident(incident);
-
-        // Пересчёт КБМ (ОФ5)
-        /*KbmCalculation manufacturerKbm = kbmService.recalculateKbm(
-                request.getManufacturerId(), "MANUFACTURER", processedIncident);
-        KbmCalculation operatorKbm = kbmService.recalculateKbm(
-                request.getOperatorId(), "OPERATOR", processedIncident);*/
-
-        /*return InsuranceResponse.builder()
-                .responseId(UUID.randomUUID().toString())
-                .requestId(request.getRequestId())
-                .orderId(request.getOrderId())
-                *//*.status(InsuranceResponse.ResponseStatus.SUCCESS)*//*
-                .coverageAmount(processedIncident.getDamageAmount())
-                .paymentAmount(processedIncident.getDamageAmount()) // Заглушка
-                .newManufacturerKbm(manufacturerKbm.getNewKbm())
-                .newOperatorKbm(operatorKbm.getNewKbm())
-                .message("Инцидент обработан, произведена выплата")
-                .build();*/
     }
 
     private InsuranceResponse processPolicyTermination(InsuranceRequest request) {
@@ -459,7 +407,6 @@ public class InsuranceService {
                     .responseId(UUID.randomUUID().toString())
                     .requestId(request.getRequestId())
                     .orderId(request.getOrderId())
-                    /*.status(InsuranceResponse.ResponseStatus.SUCCESS)*/
                     .message("Полис успешно прекращён")
                     .build();
         } else {
@@ -564,7 +511,6 @@ public class InsuranceService {
                 .responseId(UUID.randomUUID().toString())
                 .requestId(request != null ? request.getRequestId() : null)
                 .orderId(request != null ? request.getOrderId() : null)
-                /*.status(InsuranceResponse.ResponseStatus.FAILED)*/
                 .message("Error: " + errorMessage)
                 .build();
     }

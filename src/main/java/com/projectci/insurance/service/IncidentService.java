@@ -29,9 +29,6 @@ public class IncidentService {
         incident.setStatus(Incident.IncidentStatus.PROCESSED);
         //incident.setIncidentDate(LocalDateTime.now());
 
-        // Здесь должна быть логика проверки покрытия и расчёта выплаты
-        // Заглушка: выплачиваем всю сумму ущерба
-
         Incident savedIncident = incidentRepository.save(incident);
         log.info("Incident processed: {}", savedIncident);
 

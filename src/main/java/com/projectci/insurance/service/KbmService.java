@@ -22,12 +22,7 @@ public class KbmService {
     private final InsuranceProperties properties;
     private final KbmCalculationRepository kbmRepository;
 
-    // Заглушка: хранилище КБМ в памяти (в реальности - БД)
-    //private final Map<String, BigDecimal> manufacturerKbms = new ConcurrentHashMap<>();
-    //private final Map<String, BigDecimal> operatorKbms = new ConcurrentHashMap<>();
-
     public BigDecimal getManufacturerKbm(String manufacturerId) {
-        //return manufacturerKbms.getOrDefault(manufacturerId, properties.getBaseKbm());
         Optional<KbmCalculation> lastCalc = kbmRepository.findFirstByEntityIdAndEntityTypeOrderByCalculationDateDesc(manufacturerId, "MANUFACTURER");
         return lastCalc.map(KbmCalculation::getNewKbm).orElse(properties.getBaseKbm());
     }
@@ -42,7 +37,6 @@ public class KbmService {
     }
 
     public BigDecimal getOperatorKbm(String operatorId) {
-        //return operatorKbms.getOrDefault(operatorId, properties.getBaseKbm());
         Optional<KbmCalculation> lastCalc = kbmRepository.findFirstByEntityIdAndEntityTypeOrderByCalculationDateDesc(operatorId, "OPERATOR");
         return lastCalc.map(KbmCalculation::getNewKbm).orElse(properties.getBaseKbm());
     }
@@ -57,12 +51,11 @@ public class KbmService {
     }
 
     public BigDecimal getDroneKbm(String droneId) {
-        //return operatorKbms.getOrDefault(operatorId, properties.getBaseKbm());
         Optional<KbmCalculation> lastCalc = kbmRepository.findFirstByEntityIdAndEntityTypeOrderByCalculationDateDesc(droneId, "DRONE");
         return lastCalc.map(KbmCalculation::getNewKbm).orElse(properties.getBaseKbm());
     }
 
-    // заменены сервисом аналитики
+    // заменен сервисом аналитики
     public BigDecimal calculatePolicyCost(InsuranceRequest request) {
         // Заглушка: простая формула стоимости
         BigDecimal baseCost = properties.getBaseCost();
@@ -83,9 +76,7 @@ public class KbmService {
                 ? getManufacturerKbm(entityId)
                 : getOperatorKbm(entityId);
 
-        // ОФ5: Пересчёт КБМ с учётом инцидентов
-        // Заглушка: увеличиваем КБМ на 10% при инциденте
-        //BigDecimal newKbm = currentKbm.multiply(new BigDecimal("1.1"));
+        // ОФ5: Пересчёт КБМ с учётом инцидентов (перерассчёт подаётся на входе. получен от аналитики)
 
         // Сохраняем результат
         KbmCalculation calculation = new KbmCalculation();

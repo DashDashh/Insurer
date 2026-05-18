@@ -33,7 +33,6 @@ public class MqttInsuranceConsumer {
             log.error("Failed to deserialize MQTT message: {}", payload, e);
         } catch (Exception e) {
             log.error("Error processing MQTT request", e);
-            // TODO: отправить в dead letters
         }
     }
 }
