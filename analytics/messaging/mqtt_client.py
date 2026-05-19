@@ -1,4 +1,6 @@
 import json
+import time
+
 import paho.mqtt.client as mqtt
 
 from config import Config
@@ -25,10 +27,33 @@ class MQTTClient:
             f"{Config.MQTT_HOST}:{Config.MQTT_PORT}"
         )
 
-        self.client.connect(
-            Config.MQTT_HOST,
-            Config.MQTT_PORT,
-            60
+        retries = 15
+
+        for attempt in range(retries):
+
+            try:
+
+                self.client.connect(
+                    Config.MQTT_HOST,
+                    Config.MQTT_PORT,
+                    60
+                )
+
+                logger.info("Connected to MQTT broker")
+
+                return
+
+            except Exception as e:
+
+                logger.warning(
+                    f"MQTT connection failed "
+                    f"({attempt + 1}/{retries}): {e}"
+                )
+
+                time.sleep(3)
+
+        raise RuntimeError(
+            "Could not connect to MQTT broker"
         )
 
     def loop(self):
@@ -38,7 +63,6 @@ class MQTTClient:
     def on_connect(self, client, userdata, flags, rc):
 
         if rc == 0:
-            logger.info("Connected to MQTT broker")
 
             client.subscribe(
                 Config.REQUEST_TOPIC
@@ -50,6 +74,7 @@ class MQTTClient:
             )
 
         else:
+
             logger.error(
                 f"MQTT connection failed: {rc}"
             )
@@ -64,11 +89,15 @@ class MQTTClient:
 
             message = json.loads(raw)
 
+            logger.info("Routing message...")
+
             response = self.router.route(message)
 
-            target_topic = self._resolve_reply_topic(
-                message
-            )
+            logger.info(f"Router response: {response}")
+
+            target_topic = self._resolve_reply_topic(message)
+
+            logger.info(f"Publishing to: {target_topic}")
 
             self.publish(
                 target_topic,
@@ -77,7 +106,7 @@ class MQTTClient:
 
         except Exception as e:
 
-            logger.error(
+            logger.exception(
                 f"MQTT processing error: {e}"
             )
 
@@ -104,6 +133,6 @@ class MQTTClient:
         sender = message.get("sender")
 
         if sender:
-            return f"systems/{sender}"
+            return f"systems.{sender}"
 
-        return "systems/analytics-debug"
+        return "systems.analytics-debug"
