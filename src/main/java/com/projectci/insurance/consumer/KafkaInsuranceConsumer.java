@@ -22,6 +22,7 @@ public class KafkaInsuranceConsumer {
     @KafkaListener(topics = "#{@insuranceRequestTopicName}")
     public void consumeKafka(MessageRequest message) {
         log.info("Received via Kafka: {}", message);
+        log.info("Payload type: {}", message.getPayload().getClass());
         try {
             insuranceService.processInsuranceRequest(message);
         } catch (Exception e) {

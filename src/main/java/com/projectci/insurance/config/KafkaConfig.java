@@ -1,7 +1,10 @@
 package com.projectci.insurance.config;
 
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.projectci.insurance.model.MessageRequest;
+import com.projectci.insurance.model.MessageResponse;
 import com.projectci.insurance.utils.NamespaceUtils;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,7 @@ public class KafkaConfig {
 
     private final NamespaceUtils namespaceUtils;
     private final TopicConfig topicConfig;
+    private final ObjectMapper objectMapper;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -116,7 +120,7 @@ public class KafkaConfig {
         return new KafkaTemplate<>(producerFactory());
     }
 
-    // Consumer Configuration
+    // insuranceConsumer Configuration
     @Bean
     public ConsumerFactory<String, Object> consumerFactory() {
         Map<String, Object> config = new HashMap<>();
@@ -126,6 +130,7 @@ public class KafkaConfig {
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
         config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.projectci.insurance.model");
         config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, "com.projectci.insurance.model.MessageRequest");
+        config.put(JacksonJsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
         applySasl(config);
         return new DefaultKafkaConsumerFactory<>(config);
     }
@@ -135,6 +140,31 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
+        return factory;
+    }
+
+    // analytics consumer config
+    @Bean
+    public ConsumerFactory<String, MessageResponse> analyticsResponseConsumerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-analytics"); // другая группа
+        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
+        config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.projectci.insurance.model");
+        config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, "com.projectci.insurance.model.MessageResponse");
+        config.put(JacksonJsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
+        applySasl(config);
+        return new DefaultKafkaConsumerFactory<>(config);
+    }
+
+    // Фабрика для консьюмера аналитики
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, MessageResponse>
+    analyticsResponseKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, MessageResponse> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(analyticsResponseConsumerFactory());
         return factory;
     }
 

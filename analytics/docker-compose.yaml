@@ -1,0 +1,155 @@
+networks:
+  analytics_net:
+    name: ${DOCKER_NETWORK:-analytics_net}
+
+services:
+
+  # =====================================
+  # ZOOKEEPER
+  # =====================================
+
+  zookeeper:
+    image: zookeeper:3.7.0
+    container_name: zookeeper
+
+    profiles: ["kafka"]
+
+    restart: "no"
+
+    networks:
+      - analytics_net
+
+    ports:
+      - "2181:2181"
+
+  # =====================================
+  # KAFKA
+  # =====================================
+
+  kafka:
+    image: obsidiandynamics/kafka
+    container_name: kafka
+
+    profiles: ["kafka"]
+
+    restart: "no"
+
+    networks:
+      - analytics_net
+
+    ports:
+      - "9092:9092"
+
+    environment:
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: DOCKER_INTERNAL:PLAINTEXT,DOCKER_EXTERNAL:PLAINTEXT
+
+      KAFKA_LISTENERS: DOCKER_INTERNAL://:29092,DOCKER_EXTERNAL://:9092
+
+      KAFKA_ADVERTISED_LISTENERS: DOCKER_INTERNAL://kafka:29092,DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER_INTERNAL
+
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      KAFKA_BROKER_ID: 1
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+    depends_on:
+      - zookeeper
+
+  # =====================================
+  # KAFDROP
+  # =====================================
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafdrop
+
+    profiles: ["kafka"]
+
+    restart: "no"
+
+    networks:
+      - analytics_net
+
+    ports:
+      - "9000:9000"
+
+    environment:
+      KAFKA_BROKERCONNECT: kafka:29092
+
+    depends_on:
+      - kafka
+
+  # =====================================
+  # MQTT
+  # =====================================
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+
+    profiles:
+      - mqtt
+
+    restart: "no"
+
+    ports:
+      - "1883:1883"
+
+    command: >
+      sh -c "
+        echo 'listener 1883' > /mosquitto/config/mosquitto.conf &&
+        echo 'allow_anonymous true' >> /mosquitto/config/mosquitto.conf &&
+        mosquitto -c /mosquitto/config/mosquitto.conf
+      "
+
+    networks:
+      - analytics_net
+
+
+  # =====================================
+  # ANALYTICS SERVICE
+  # =====================================
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: analytics-service
+
+    restart: on-failure
+
+    env_file:
+      - ../.env
+
+    networks:
+      - analytics_net
+
+    environment:
+
+      # broker mode
+      MESSAGING_PROFILE: ${MESSAGING_PROFILE}
+
+      # kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_GROUP_ID: analytics-group
+
+      # mqtt
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+
+      # common
+      REQUEST_TOPIC: component.insurer_analytics
+
+    command: >
+      sh -c "
+        echo 'Waiting for broker...';
+        sleep 10;
+        python app.py
+      "

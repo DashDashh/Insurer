@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -26,10 +27,7 @@ public class IncidentService {
         }
 
         incident.setStatus(Incident.IncidentStatus.PROCESSED);
-        incident.setIncidentDate(LocalDateTime.now());
-
-        // Здесь должна быть логика проверки покрытия и расчёта выплаты
-        // Заглушка: выплачиваем всю сумму ущерба
+        //incident.setIncidentDate(LocalDateTime.now());
 
         Incident savedIncident = incidentRepository.save(incident);
         log.info("Incident processed: {}", savedIncident);
@@ -37,9 +35,11 @@ public class IncidentService {
         return savedIncident;
     }
 
-    public int getIncidentCountForEntity(String entityId, LocalDateTime since) {
-        // Заглушка: подсчёт инцидентов для entity
-        // В реальности нужно реализовать запрос к БД
-        return 0;
+    public List<Incident> getManufacturerIncidentHistory(String manufacturerId) {
+        return incidentRepository.findByManufacturerId(manufacturerId);
+    }
+
+    public List<Incident> getOperatorIncidentHistory(String operatorId) {
+        return incidentRepository.findByOperatorId(operatorId);
     }
 }

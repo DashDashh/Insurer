@@ -1,9 +1,10 @@
 package com.projectci.insurance.service;
 
 import com.projectci.insurance.config.InsuranceProperties;
-import com.projectci.insurance.model.InsuranceRequest;
 import com.projectci.insurance.model.Policy;
+import com.projectci.insurance.model.analytics.CalcResponse;
 import com.projectci.insurance.repository.PolicyRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,32 +22,31 @@ public class PolicyService {
     private final PolicyRepository policyRepository;
     private final InsuranceProperties properties;
 
-    public Policy createPolicy(InsuranceRequest request, Policy.PolicyType type) {
+    public Policy createPolicy(CalcResponse response, Policy.PolicyType type, Policy.PolicyStatus status, BigDecimal droneKbm) {
         Policy policy = new Policy();
         policy.setPolicyNumber("POL-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-        policy.setOrderId(request.getOrderId());
-        policy.setManufacturerId(request.getManufacturerId());
-        policy.setOperatorId(request.getOperatorId());
-        policy.setDroneId(request.getDroneId());
+        policy.setOrderId(response.getOrderId());
+        policy.setManufacturerId(response.getManufacturerId());
+        policy.setOperatorId(response.getOperatorId());
+        policy.setDroneId(response.getDroneId());
 
 
         switch (type) {
             case mission:
-                // Заглушка: полис действует 30 дней
                 policy.setStartDate(LocalDateTime.now());
                 policy.setEndDate(LocalDateTime.now().plusDays(properties.getPolicyDurationDays()));
             case annual:
                 policy.setStartDate(LocalDateTime.now());
                 policy.setEndDate(LocalDateTime.now().plusYears(1L));
         }
-        // Заглушка: стоимость из пропертей
-        policy.setCost(request.getCoverageAmount().multiply( new BigDecimal("0.08").multiply(properties.getBaseKbm())));
-        policy.setCoverageAmount(properties.getBaseCost().multiply(new java.math.BigDecimal("10"))); // покрытие в 10 раз больше
+        // стоимость от аналитики
+        policy.setCost(response.getCalculatedCost());
+        policy.setCoverageAmount(response.getCoverageAmount());
 
-        policy.setStatus(Policy.PolicyStatus.active);
+        policy.setStatus(status);
         policy.setPolicyType(type);
 
-        policy.setDroneKbm(properties.getBaseKbm());
+        policy.setDroneKbm(droneKbm);
 
         return policyRepository.save(policy);
     }
@@ -70,5 +70,15 @@ public class PolicyService {
     public Optional<Policy> getActivePolicyForOrder(String orderId) {
         return policyRepository.findByOrderId(orderId)
                 .filter(p -> p.getStatus() == Policy.PolicyStatus.active);
+    }
+
+    public Optional<Policy> getCalculatedPolicyForOrder(String orderId) {
+        return policyRepository.findByOrderId(orderId)
+                .filter(p -> p.getStatus() == Policy.PolicyStatus.calculated);
+    }
+
+    @Transactional
+    public void updatePolicyStatus(String policyNumber, Policy.PolicyStatus newStatus) {
+        policyRepository.updatePolicyStatusByPolicyNumber(policyNumber, newStatus);
     }
 }

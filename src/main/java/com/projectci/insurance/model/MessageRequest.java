@@ -5,7 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.databind.JsonNode;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -31,13 +32,13 @@ public class MessageRequest {
 
     // Полезная нагрузка
     @JsonProperty("payload")
-    private InsuranceRequest payload;
+    private Object payload;
 
     // Метаданные
     @JsonProperty("message_type")
     private String messageType;     // "request", "response", "event"
-    @JsonProperty("headers")
-    private Map<String, String> headers;
+    /*@JsonProperty("headers")
+    private Map<String, String> headers;*/
 
     public enum insuranceAction {
         annual_insurance,
@@ -49,7 +50,7 @@ public class MessageRequest {
     }
 
     // Статический метод для создания запроса
-    public static MessageRequest createRequest(insuranceAction action, String sender, InsuranceRequest payload) {
+    public static MessageRequest createRequest(insuranceAction action, String sender, Object payload) {
         MessageRequest message = new MessageRequest();
         message.setMessageId(UUID.randomUUID().toString());
         message.setAction(action);

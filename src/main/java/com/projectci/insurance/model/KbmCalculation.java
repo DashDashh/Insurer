@@ -18,9 +18,9 @@ public class KbmCalculation {
     private String id;
 
     @JsonProperty("entity_id")
-    private String entityId; // manufacturerId или operatorId
+    private String entityId; // manufacturerId или operatorId или droneId
     @JsonProperty("entity_type")
-    private String entityType; // MANUFACTURER, OPERATOR
+    private String entityType; // MANUFACTURER, OPERATOR, DRONE
 
     @JsonProperty("current_kbm")
     private BigDecimal currentKbm;
