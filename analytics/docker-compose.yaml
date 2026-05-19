@@ -69,7 +69,7 @@ services:
       - messaging-net
 
     env_file:
-      - .env
+      - ../.env
 
     depends_on:
       - kafka

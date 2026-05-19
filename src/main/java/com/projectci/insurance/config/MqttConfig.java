@@ -120,6 +120,37 @@ public class MqttConfig {
         return adapter;
     }
 
+    public String getAnalyticsResponseTopicName() {
+        return "component.analytics.response";
+    }
+
+    @Bean
+    public String analyticsResponseTopicName() {
+        return getAnalyticsResponseTopicName();
+    }
+
+    @Bean
+    public MessageChannel mqttAnalyticsResponseInputChannel() {
+        return new DirectChannel();
+    }
+
+    // НОВЫЙ Inbound для ответов аналитики
+    @Bean
+    public MessageProducer inboundAnalyticsResponse(MqttPahoClientFactory factory,
+                                                    @Qualifier("analyticsResponseTopicName") String topic) {
+        String clientId = "analytics-consumer-" + (this.instanceId != null ? this.instanceId : "1");
+        MqttPahoMessageDrivenChannelAdapter adapter =
+                new MqttPahoMessageDrivenChannelAdapter(clientId, factory, topic);
+
+        DefaultPahoMessageConverter converter = new DefaultPahoMessageConverter();
+        converter.setPayloadAsBytes(false);
+
+        adapter.setConverter(converter);
+        adapter.setOutputChannel(mqttAnalyticsResponseInputChannel());
+        adapter.setAutoStartup(true);
+        return adapter;
+    }
+
     @Bean
     public MessageChannel mqttInputChannel() {
         return new DirectChannel();
