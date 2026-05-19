@@ -47,25 +47,6 @@ services:
     depends_on:
       - zookeeper
 
-  kafka-init:
-    image: obsidiandynamics/kafka
-    container_name: kafka-init
-    profiles: [ "kafka" ]
-    networks:
-      - drones_net
-    depends_on:
-      - kafka
-    entrypoint: >
-      /bin/sh -c "
-        echo 'Waiting for Kafka to be ready...';
-        sleep 10;
-        echo 'Creating topics...';
-        /opt/kafka_2.12-2.3.0/bin/kafka-topics.sh --create --topic component.insurer_analytics --zookeeper zookeeper:2181 --partitions 1 --replication-factor 1 --if-not-exists;
-        echo 'Topics created successfully';
-        exit 0
-      "
-    restart: "no"
-
   kafdrop:
     image: obsidiandynamics/kafdrop
     container_name: kafdrop
@@ -79,7 +60,33 @@ services:
       KAFKA_BROKERCONNECT: "kafka:29092"
     depends_on:
       - "kafka"
-  
+
+  kafka-init:
+    image: obsidiandynamics/kafka
+    container_name: kafka-init
+    profiles: [ "kafka" ]
+    networks:
+      - drones_net
+    depends_on:
+      - kafka
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Waiting for Kafka...';
+        sleep 15;
+      
+        echo 'Creating topics...';
+      
+        /opt/kafka_2.12-2.3.0/bin/kafka-topics.sh
+        --create
+        --topic component.insurer_analytics
+        --zookeeper zookeeper:2181
+        --partitions 1
+        --replication-factor 1
+        --if-not-exists;
+      
+        echo 'Kafka topics created';
+      "
+
   insurance-service:
     build:
       context: .
@@ -105,14 +112,29 @@ services:
       context: ./analytics
       dockerfile: Dockerfile
     container_name: analytics-service
+    restart: on-failure
+    env_file:
+      - .env
     networks:
       - drones_net
     environment:
-      MESSAGING_PROFILE: kafka
+      # broker mode
+      MESSAGING_PROFILE: ${BROKER_TYPE:-kafka}
+      # kafka
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-    depends_on:
-      - kafka-init
-    restart: on-failure
+      KAFKA_GROUP_ID: analytics-group
+      # mqtt
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+      # common
+      REQUEST_TOPIC: component.insurer_analytics
+
+    command: >
+      sh -c "
+        echo 'Waiting for broker...';
+        sleep 10;
+        python app.py
+      "
 
   tests:
     image: tests:latest
